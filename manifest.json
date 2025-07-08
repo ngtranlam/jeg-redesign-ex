@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Screen Capture Extension",
+  "version": "1.0",
+  "description": "Chụp ảnh màn hình và lưu lại",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "desktopCapture",
+    "downloads",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Chụp ảnh màn hình"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "16": "icons/cropicon.png",
+    "48": "icons/cropicon.png",
+    "128": "icons/cropicon.png"
+  }
+} 
