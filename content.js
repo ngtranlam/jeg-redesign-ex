@@ -230,7 +230,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modelSelect.style.fontSize = '15px';
   modelSelect.style.borderRadius = '6px';
   modelSelect.style.border = '1px solid #888';
-  modelSelect.innerHTML = '<option>GPT 4.1</option>';
+  modelSelect.innerHTML = '<option>GPT 4.1</option><option>GPT Image 1</option>';
   modelWrap.appendChild(modelLabel);
   modelWrap.appendChild(modelSelect);
 
@@ -444,7 +444,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       formData.append('file', blob, 'capture.png');
       const apiKey = ""
       formData.append('api_key', apiKey);
-      formData.append('model', 'gpt-4.1');
+      formData.append('model', modelSelect.value);
       formData.append('size', '4500');
       formData.append('prompt', '');
       formData.append('mode', modeSelect.value); // gửi mode lên API
