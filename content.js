@@ -234,6 +234,25 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modelWrap.appendChild(modelLabel);
   modelWrap.appendChild(modelSelect);
 
+  // MODE dropdown
+  const modeWrap = document.createElement('div');
+  modeWrap.style.display = 'flex';
+  modeWrap.style.flexDirection = 'column';
+  modeWrap.style.gap = '4px';
+  const modeLabel = document.createElement('label');
+  modeLabel.textContent = 'MODE';
+  modeLabel.style.fontWeight = 'bold';
+  modeLabel.style.fontSize = '14px';
+  const modeSelect = document.createElement('select');
+  modeSelect.style.padding = '6px 12px';
+  modeSelect.style.fontSize = '15px';
+  modeSelect.style.borderRadius = '6px';
+  modeSelect.style.border = '1px solid #888';
+  modeSelect.innerHTML = '<option value="canny">Canny</option><option value="normal">Normal</option>';
+  modeWrap.appendChild(modeLabel);
+  modeWrap.appendChild(modeSelect);
+  leftTopGroup.appendChild(modeWrap);
+
   leftTopGroup.appendChild(providerWrap);
   leftTopGroup.appendChild(modelWrap);
   topBar.appendChild(leftTopGroup);
@@ -428,7 +447,8 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       formData.append('model', 'gpt-4.1');
       formData.append('size', '4500');
       formData.append('prompt', '');
-      const res = await fetch('http://localhost:8000/extract-design', {
+      formData.append('mode', modeSelect.value); // gửi mode lên API
+      const res = await fetch('https://jeg-redesign.onrender.com/extract-design', {
         method: 'POST',
         body: formData
       });
