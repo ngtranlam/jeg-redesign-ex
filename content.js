@@ -230,7 +230,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modelSelect.style.fontSize = '15px';
   modelSelect.style.borderRadius = '6px';
   modelSelect.style.border = '1px solid #888';
-  modelSelect.innerHTML = '<option>GPT 4.1</option><option>GPT Image 1</option>';
+  modelSelect.innerHTML = '<option>gpt-4.1</option><option>GPT Image 1</option>';
   modelWrap.appendChild(modelLabel);
   modelWrap.appendChild(modelSelect);
 
