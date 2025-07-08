@@ -1,0 +1,13 @@
+streamlit 
+openai
+pillow 
+rembg 
+numpy
+opencv-python
+onnxruntime
+requests
+matplotlib
+bcrypt
+fastapi
+uvicorn
+python-multipart
