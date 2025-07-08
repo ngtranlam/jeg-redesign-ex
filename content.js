@@ -432,7 +432,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   // Xử lý nút RUN
   runBtn.onclick = async function() {
     runBtn.disabled = true;
-    runBtn.textContent = 'Đang xử lý...';
+    runBtn.textContent = 'Processing...';
     downloadBtn.disabled = true;
     if (resultImg) {
       resultImg.style.display = 'none';
