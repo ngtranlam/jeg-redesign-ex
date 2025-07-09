@@ -185,7 +185,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   topBar.style.display = 'flex';
   topBar.style.justifyContent = 'space-between';
   topBar.style.alignItems = 'flex-start';
-  topBar.style.height = '80px';
+  topBar.style.height = '120px'; // Tăng chiều cao để chứa thêm mockup controls
   topBar.style.padding = '16px 16px 0 16px'; // giảm padding sát mép
   topBar.style.boxSizing = 'border-box';
   topBar.style.width = '100%';
@@ -266,13 +266,117 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modeSelect.innerHTML = '<option value="canny">Canny</option><option value="normal">Normal</option>';
   modeWrap.appendChild(modeLabel);
   modeWrap.appendChild(modeSelect);
-  leftTopGroup.appendChild(modeWrap);
 
+  leftTopGroup.appendChild(modeWrap);
   leftTopGroup.appendChild(providerWrap);
   leftTopGroup.appendChild(modelWrap);
-  topBar.appendChild(leftTopGroup);
 
-  // Nút RUN, Cancel, Download thẳng hàng, đều nhau
+  // Mockup Controls Group (giữa)
+  const mockupGroup = document.createElement('div');
+  mockupGroup.style.display = 'flex';
+  mockupGroup.style.flexDirection = 'column';
+  mockupGroup.style.gap = '8px';
+  mockupGroup.style.alignItems = 'center';
+
+  const mockupTitle = document.createElement('div');
+  mockupTitle.textContent = 'MOCKUP SETTINGS';
+  mockupTitle.style.fontWeight = 'bold';
+  mockupTitle.style.fontSize = '14px';
+  mockupTitle.style.color = '#333';
+  mockupTitle.style.marginBottom = '4px';
+  mockupGroup.appendChild(mockupTitle);
+
+  const mockupControls = document.createElement('div');
+  mockupControls.style.display = 'flex';
+  mockupControls.style.gap = '16px';
+  mockupControls.style.alignItems = 'flex-end';
+
+  // Gender dropdown
+  const genderWrap = document.createElement('div');
+  genderWrap.style.display = 'flex';
+  genderWrap.style.flexDirection = 'column';
+  genderWrap.style.gap = '4px';
+  const genderLabel = document.createElement('label');
+  genderLabel.textContent = 'Gender';
+  genderLabel.style.fontWeight = 'bold';
+  genderLabel.style.fontSize = '12px';
+  genderLabel.style.textAlign = 'left';
+  const genderSelect = document.createElement('select');
+  genderSelect.style.padding = '6px 12px';
+  genderSelect.style.fontSize = '13px';
+  genderSelect.style.borderRadius = '6px';
+  genderSelect.style.border = '1px solid #888';
+  genderSelect.innerHTML = '<option value="">All</option><option value="men">Men</option><option value="women">Women</option>';
+  genderWrap.appendChild(genderLabel);
+  genderWrap.appendChild(genderSelect);
+
+  // Product dropdown
+  const productWrap = document.createElement('div');
+  productWrap.style.display = 'flex';
+  productWrap.style.flexDirection = 'column';
+  productWrap.style.gap = '4px';
+  const productLabel = document.createElement('label');
+  productLabel.textContent = 'Product';
+  productLabel.style.fontWeight = 'bold';
+  productLabel.style.fontSize = '12px';
+  productLabel.style.textAlign = 'left';
+  const productSelect = document.createElement('select');
+  productSelect.style.padding = '6px 12px';
+  productSelect.style.fontSize = '13px';
+  productSelect.style.borderRadius = '6px';
+  productSelect.style.border = '1px solid #888';
+  productSelect.innerHTML = '<option value="">All</option><option value="tshirt">T-Shirt</option><option value="hoodie">Hoodie</option><option value="mug">Mug</option><option value="poster">Poster</option>';
+  productWrap.appendChild(productLabel);
+  productWrap.appendChild(productSelect);
+
+  // View dropdown
+  const viewWrap = document.createElement('div');
+  viewWrap.style.display = 'flex';
+  viewWrap.style.flexDirection = 'column';
+  viewWrap.style.gap = '4px';
+  const viewLabel = document.createElement('label');
+  viewLabel.textContent = 'View';
+  viewLabel.style.fontWeight = 'bold';
+  viewLabel.style.fontSize = '12px';
+  viewLabel.style.textAlign = 'left';
+  const viewSelect = document.createElement('select');
+  viewSelect.style.padding = '6px 12px';
+  viewSelect.style.fontSize = '13px';
+  viewSelect.style.borderRadius = '6px';
+  viewSelect.style.border = '1px solid #888';
+  viewSelect.innerHTML = '<option value="">All</option><option value="front">Front</option><option value="back">Back</option><option value="side">Side</option>';
+  viewWrap.appendChild(viewLabel);
+  viewWrap.appendChild(viewSelect);
+
+  // Color dropdown
+  const colorWrap = document.createElement('div');
+  colorWrap.style.display = 'flex';
+  colorWrap.style.flexDirection = 'column';
+  colorWrap.style.gap = '4px';
+  const colorLabel = document.createElement('label');
+  colorLabel.textContent = 'Color';
+  colorLabel.style.fontWeight = 'bold';
+  colorLabel.style.fontSize = '12px';
+  colorLabel.style.textAlign = 'left';
+  const colorSelect = document.createElement('select');
+  colorSelect.style.padding = '6px 12px';
+  colorSelect.style.fontSize = '13px';
+  colorSelect.style.borderRadius = '6px';
+  colorSelect.style.border = '1px solid #888';
+  colorSelect.innerHTML = '<option value="">All</option><option value="white">White</option><option value="black">Black</option><option value="gray">Gray</option><option value="blue">Blue</option><option value="red">Red</option>';
+  colorWrap.appendChild(colorLabel);
+  colorWrap.appendChild(colorSelect);
+
+  mockupControls.appendChild(genderWrap);
+  mockupControls.appendChild(productWrap);
+  mockupControls.appendChild(viewWrap);
+  mockupControls.appendChild(colorWrap);
+  mockupGroup.appendChild(mockupControls);
+
+  topBar.appendChild(leftTopGroup);
+  topBar.appendChild(mockupGroup);
+
+  // Nút RUN, Cancel, Download, Create Mockup thẳng hàng, đều nhau
   const runBtn = document.createElement('button');
   runBtn.textContent = 'RUN';
   runBtn.style.height = '48px';
@@ -321,6 +425,23 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   downloadBtn.style.cursor = 'pointer';
   downloadBtn.style.margin = '0';
 
+  const createMockupBtn = document.createElement('button');
+  createMockupBtn.textContent = 'Create Mockup';
+  createMockupBtn.style.height = '48px';
+  createMockupBtn.style.padding = '0 28px';
+  createMockupBtn.style.display = 'flex';
+  createMockupBtn.style.alignItems = 'center';
+  createMockupBtn.style.justifyContent = 'center';
+  createMockupBtn.style.borderRadius = '8px';
+  createMockupBtn.style.fontWeight = 'bold';
+  createMockupBtn.style.fontSize = '18px';
+  createMockupBtn.style.border = '2.5px solid #2196f3';
+  createMockupBtn.style.background = '#2196f3';
+  createMockupBtn.style.color = '#fff';
+  createMockupBtn.style.cursor = 'pointer';
+  createMockupBtn.style.margin = '0';
+  createMockupBtn.disabled = true; // Chỉ enable sau khi có design
+
   const topBtnGroup = document.createElement('div');
   topBtnGroup.style.display = 'flex';
   topBtnGroup.style.gap = '18px';
@@ -330,6 +451,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   topBtnGroup.appendChild(runBtn);
   topBtnGroup.appendChild(cancelBtn);
   topBtnGroup.appendChild(downloadBtn);
+  topBtnGroup.appendChild(createMockupBtn);
   topBar.appendChild(topBtnGroup);
   popup.appendChild(topBar);
 
@@ -519,6 +641,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
         resultImg.src = 'data:image/png;base64,' + data.image_base64;
         resultImg.style.display = 'block';
         downloadBtn.disabled = false;
+        createMockupBtn.disabled = false; // Enable Create Mockup button
       } else {
         alert(data.error || 'Lỗi không xác định!');
       }
@@ -539,6 +662,49 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       a.href = resultImg.src;
       a.download = 'design.png';
       a.click();
+    }
+  };
+
+  createMockupBtn.disabled = true; // Ensure it's disabled by default
+  createMockupBtn.onclick = async () => {
+    if (resultImg && resultImg.src && resultImg.style.display !== 'none') {
+      createMockupBtn.disabled = true;
+      createMockupBtn.textContent = 'Creating...';
+      
+      try {
+        const response = await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({
+            action: 'create_mockup',
+            imageUrl: resultImg.src,
+            gender: genderSelect.value,
+            product: productSelect.value,
+            view: viewSelect.value,
+            color: colorSelect.value
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(chrome.runtime.lastError);
+            } else {
+              resolve(response);
+            }
+          });
+        });
+        
+        if (response && response.mockupUrl) {
+          // Mở mockup trong tab mới
+          window.open(response.mockupUrl, '_blank');
+          alert('Mockup đã được tạo thành công! Mở trong tab mới.');
+        } else {
+          alert('Tạo mockup thất bại: ' + (response?.error || 'Không có kết quả'));
+        }
+      } catch (error) {
+        console.error('Error creating mockup:', error);
+        alert('Lỗi khi tạo mockup: ' + error.message);
+      } finally {
+        createMockupBtn.disabled = false;
+        createMockupBtn.textContent = 'Create Mockup';
+      }
+    } else {
+      alert('Vui lòng chạy RUN trước để có design, sau đó mới tạo mockup.');
     }
   };
 
