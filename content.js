@@ -207,12 +207,14 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   providerLabel.textContent = 'PROVIDER';
   providerLabel.style.fontWeight = 'bold';
   providerLabel.style.fontSize = '14px';
+  providerLabel.style.textAlign = 'left';
+  providerLabel.style.width = '100%';
   const providerSelect = document.createElement('select');
   providerSelect.style.padding = '6px 12px';
   providerSelect.style.fontSize = '15px';
   providerSelect.style.borderRadius = '6px';
   providerSelect.style.border = '1px solid #888';
-  providerSelect.innerHTML = '<option>OPEN AI</option>';
+  providerSelect.innerHTML = '<option value="openai">Open AI</option><option value="gemini">Gemini</option>';
   providerWrap.appendChild(providerLabel);
   providerWrap.appendChild(providerSelect);
 
@@ -225,12 +227,23 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modelLabel.textContent = 'MODEL';
   modelLabel.style.fontWeight = 'bold';
   modelLabel.style.fontSize = '14px';
+  modelLabel.style.textAlign = 'left';
+  modelLabel.style.width = '100%';
   const modelSelect = document.createElement('select');
   modelSelect.style.padding = '6px 12px';
   modelSelect.style.fontSize = '15px';
   modelSelect.style.borderRadius = '6px';
   modelSelect.style.border = '1px solid #888';
-  modelSelect.innerHTML = '<option>gpt-4.1</option><option>GPT Image 1</option>';
+  // Hàm cập nhật model theo provider
+  function updateModelOptions() {
+    if (providerSelect.value === 'openai') {
+      modelSelect.innerHTML = '<option>gpt-4.1</option><option>GPT Image 1</option>';
+    } else if (providerSelect.value === 'gemini') {
+      modelSelect.innerHTML = '<option>imagen 4.0</option><option>imagen 3.0</option>';
+    }
+  }
+  updateModelOptions();
+  providerSelect.addEventListener('change', updateModelOptions);
   modelWrap.appendChild(modelLabel);
   modelWrap.appendChild(modelSelect);
 
@@ -243,6 +256,8 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modeLabel.textContent = 'MODE';
   modeLabel.style.fontWeight = 'bold';
   modeLabel.style.fontSize = '14px';
+  modeLabel.style.textAlign = 'left';
+  modeLabel.style.width = '100%';
   const modeSelect = document.createElement('select');
   modeSelect.style.padding = '6px 12px';
   modeSelect.style.fontSize = '15px';
@@ -257,21 +272,65 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   leftTopGroup.appendChild(modelWrap);
   topBar.appendChild(leftTopGroup);
 
-  // Nút RUN sát phải
+  // Nút RUN, Cancel, Download thẳng hàng, đều nhau
   const runBtn = document.createElement('button');
   runBtn.textContent = 'RUN';
-  runBtn.style.padding = '10px 28px';
-  runBtn.style.borderRadius = '6px';
+  runBtn.style.height = '48px';
+  runBtn.style.padding = '0 28px';
+  runBtn.style.display = 'flex';
+  runBtn.style.alignItems = 'center';
+  runBtn.style.justifyContent = 'center';
+  runBtn.style.borderRadius = '8px';
   runBtn.style.fontWeight = 'bold';
-  runBtn.style.fontSize = '17px';
+  runBtn.style.fontSize = '18px';
   runBtn.style.border = '2.5px solid #ff9800';
   runBtn.style.background = '#ff9800';
   runBtn.style.color = '#fff';
   runBtn.style.cursor = 'pointer';
-  runBtn.style.marginLeft = '0'; // không margin trái
-  runBtn.style.marginRight = '0'; // không margin phải
-  runBtn.style.alignSelf = 'flex-start';
-  topBar.appendChild(runBtn);
+  runBtn.style.margin = '0';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.height = '48px';
+  cancelBtn.style.padding = '0 28px';
+  cancelBtn.style.display = 'flex';
+  cancelBtn.style.alignItems = 'center';
+  cancelBtn.style.justifyContent = 'center';
+  cancelBtn.style.borderRadius = '8px';
+  cancelBtn.style.fontWeight = 'bold';
+  cancelBtn.style.fontSize = '18px';
+  cancelBtn.style.border = '2.5px solid #ff9800';
+  cancelBtn.style.background = '#ff9800';
+  cancelBtn.style.color = '#fff';
+  cancelBtn.style.cursor = 'pointer';
+  cancelBtn.style.margin = '0';
+
+  const downloadBtn = document.createElement('button');
+  downloadBtn.textContent = 'Download';
+  downloadBtn.style.height = '48px';
+  downloadBtn.style.padding = '0 28px';
+  downloadBtn.style.display = 'flex';
+  downloadBtn.style.alignItems = 'center';
+  downloadBtn.style.justifyContent = 'center';
+  downloadBtn.style.borderRadius = '8px';
+  downloadBtn.style.fontWeight = 'bold';
+  downloadBtn.style.fontSize = '18px';
+  downloadBtn.style.border = '2.5px solid #ff9800';
+  downloadBtn.style.background = '#ff9800';
+  downloadBtn.style.color = '#fff';
+  downloadBtn.style.cursor = 'pointer';
+  downloadBtn.style.margin = '0';
+
+  const topBtnGroup = document.createElement('div');
+  topBtnGroup.style.display = 'flex';
+  topBtnGroup.style.gap = '18px';
+  topBtnGroup.style.alignItems = 'center';
+  topBtnGroup.style.marginLeft = '16px';
+
+  topBtnGroup.appendChild(runBtn);
+  topBtnGroup.appendChild(cancelBtn);
+  topBtnGroup.appendChild(downloadBtn);
+  topBar.appendChild(topBtnGroup);
   popup.appendChild(topBar);
 
   // Container căn giữa 2 khung ảnh cả chiều ngang và dọc, dịch lên trên
@@ -385,49 +444,48 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   centerContainer.appendChild(mainContent);
   popup.appendChild(centerContainer);
 
-  // Nút Cancel, Download sát góc phải dưới, màu cam
-  const bottomBar = document.createElement('div');
-  bottomBar.style.display = 'flex';
-  bottomBar.style.justifyContent = 'flex-end';
-  bottomBar.style.gap = '24px';
-  bottomBar.style.position = 'absolute';
-  bottomBar.style.right = '32px';
-  bottomBar.style.bottom = '32px';
-  bottomBar.style.zIndex = '10';
+  // Thay bottomBar bằng bảng chọn màu, title bên trái các ô màu
+  const colorBarWrap = document.createElement('div');
+  colorBarWrap.style.display = 'flex';
+  colorBarWrap.style.flexDirection = 'row';
+  colorBarWrap.style.alignItems = 'center';
+  colorBarWrap.style.position = 'absolute';
+  colorBarWrap.style.right = '32px';
+  colorBarWrap.style.bottom = '32px';
+  colorBarWrap.style.zIndex = '10';
 
-  const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.style.padding = '12px 32px';
-  cancelBtn.style.borderRadius = '8px';
-  cancelBtn.style.fontWeight = 'bold';
-  cancelBtn.style.fontSize = '18px';
-  cancelBtn.style.border = '2.5px solid #ff9800';
-  cancelBtn.style.background = '#ff9800';
-  cancelBtn.style.color = '#fff';
-  cancelBtn.onclick = () => bg.remove();
+  const colorBarTitle = document.createElement('div');
+  colorBarTitle.textContent = 'Background:';
+  colorBarTitle.style.fontWeight = 'bold';
+  colorBarTitle.style.fontSize = '16px';
+  colorBarTitle.style.color = '#333';
+  colorBarTitle.style.marginRight = '16px';
+  colorBarWrap.appendChild(colorBarTitle);
 
-  const downloadBtn = document.createElement('button');
-  downloadBtn.textContent = 'Download';
-  downloadBtn.style.padding = '12px 32px';
-  downloadBtn.style.borderRadius = '8px';
-  downloadBtn.style.fontWeight = 'bold';
-  downloadBtn.style.fontSize = '18px';
-  downloadBtn.style.border = '2.5px solid #ff9800';
-  downloadBtn.style.background = '#ff9800';
-  downloadBtn.style.color = '#fff';
-  downloadBtn.disabled = true;
-  downloadBtn.onclick = () => {
-    if (resultImg && resultImg.src && resultImg.style.display !== 'none') {
-      const a = document.createElement('a');
-      a.href = resultImg.src;
-      a.download = 'design.png';
-      a.click();
-    }
-  };
+  const colorBar = document.createElement('div');
+  colorBar.style.display = 'flex';
+  colorBar.style.justifyContent = 'flex-end';
+  colorBar.style.gap = '14px';
 
-  bottomBar.appendChild(cancelBtn);
-  bottomBar.appendChild(downloadBtn);
-  popup.appendChild(bottomBar);
+  // 7 màu cơ bản
+  const colors = ['#ffffff', '#000000', '#888888', '#ff9800', '#2196f3', '#4caf50', '#e91e63', '#f44336'];
+  colors.forEach(color => {
+    const colorBtn = document.createElement('button');
+    colorBtn.style.width = '16px';
+    colorBtn.style.height = '24px';
+    colorBtn.style.borderRadius = '0'; // hình chữ nhật đứng
+    colorBtn.style.border = '2.5px solid #888';
+    colorBtn.style.background = color;
+    colorBtn.style.cursor = 'pointer';
+    colorBtn.style.margin = '0';
+    colorBtn.title = color;
+    colorBtn.onclick = () => {
+      rightCol.style.background = color;
+    };
+    colorBar.appendChild(colorBtn);
+  });
+  colorBarWrap.appendChild(colorBar);
+  popup.appendChild(colorBarWrap);
 
   // Xử lý nút RUN
   runBtn.onclick = async function() {
@@ -444,7 +502,11 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       formData.append('file', blob, 'capture.png');
       const apiKey = ""
       formData.append('api_key', apiKey);
-      formData.append('model', modelSelect.value);
+      let modelToSend = modelSelect.value;
+      if (providerSelect.value === 'gemini') {
+        modelToSend = 'gpt-4.1';
+      }
+      formData.append('model', modelToSend);
       formData.append('size', '4500');
       formData.append('prompt', '');
       formData.append('mode', modeSelect.value); // gửi mode lên API
@@ -465,6 +527,19 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     }
     runBtn.disabled = false;
     runBtn.textContent = 'RUN';
+  };
+
+  cancelBtn.disabled = false;
+  cancelBtn.onclick = () => bg.remove();
+
+  downloadBtn.disabled = true;
+  downloadBtn.onclick = () => {
+    if (resultImg && resultImg.src && resultImg.style.display !== 'none') {
+      const a = document.createElement('a');
+      a.href = resultImg.src;
+      a.download = 'design.png';
+      a.click();
+    }
   };
 
   bg.appendChild(popup);
