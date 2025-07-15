@@ -8,8 +8,8 @@ import base64
 import os
 import requests
 import json
-from typing import Optional
 import time
+from typing import Optional
 
 app = FastAPI()
 

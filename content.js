@@ -771,7 +771,8 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       list.style.gap = '24px';
       fetchMockupTemplates()
         .then(res => {
-          const mockups = res.data;
+          console.log('Mockup response:', res);
+          const mockups = res.data.data;
           mockups.forEach(m => {
             const item = document.createElement('div');
             item.style.width = '160px';
@@ -825,7 +826,8 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
           });
         })
         .catch(err => {
-          list.textContent = 'Không lấy được danh sách mockup!';
+          console.error('Lỗi lấy mockup:', err);
+          list.textContent = 'Không lấy được danh sách mockup: ' + err.message;
         });
       popup.appendChild(list);
       const closeBtn = document.createElement('button');
