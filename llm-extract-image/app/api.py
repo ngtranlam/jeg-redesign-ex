@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from core.image_processing import ExtractImage
@@ -167,17 +167,23 @@ async def get_mockup_templates():
         return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
 
 @app.post("/create-mockup")
-async def create_mockup(
-    design_image: str = Form(...),  # Base64 string của ảnh design
-    mockup_uuid: str = Form(...),
-    smart_object_uuid: str = Form(...),
-    smart_object_info: str = Form("{}")  # JSON string của smart object info
-):
+async def create_mockup(request: Request):
     """Tạo mockup từ design image"""
     try:
+        # Lấy dữ liệu từ form
+        form_data = await request.form()
+        design_image = form_data.get("design_image")
+        mockup_uuid = form_data.get("mockup_uuid")
+        smart_object_uuid = form_data.get("smart_object_uuid")
+        smart_object_info = form_data.get("smart_object_info", "{}")
+        
         print(f"Creating mockup - mockup_uuid: {mockup_uuid}")
         print(f"Smart object UUID: {smart_object_uuid}")
         print(f"Design image length: {len(design_image) if design_image else 0}")
+        
+        # Kiểm tra dữ liệu bắt buộc
+        if not design_image or not mockup_uuid or not smart_object_uuid:
+            return JSONResponse(content={"success": False, "error": "Missing required fields"}, status_code=400)
         
         # Lấy API keys từ environment variables
         imgbb_api_key = os.environ.get("IMGBB_API_KEY")

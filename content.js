@@ -1074,6 +1074,16 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
         }
       }
       
+      // Kiểm tra designBase64 trước khi gọi backend
+      if (!designBase64) {
+        alert('Không có ảnh design để tạo mockup!');
+        createBtn.disabled = false;
+        createBtn.textContent = 'CREATE MOCKUP';
+        return;
+      }
+      
+      console.log('Design base64 sample:', designBase64.substring(0, 100) + '...');
+      
       // Gọi backend để tạo mockup
       createMockupViaBackend(selectedMockup.uuid, selectedSmartObject.uuid, designBase64, selectedSmartObject)
         .then(mockupUrl => {
@@ -1158,21 +1168,44 @@ async function fetchMockupTemplates() {
 
 // Hàm tạo mockup qua backend
 async function createMockupViaBackend(mockupUuid, smartObjectUuid, designBase64, smartObjectInfo) {
-  const formData = new FormData();
-  formData.append('design_image', designBase64);
-  formData.append('mockup_uuid', mockupUuid);
-  formData.append('smart_object_uuid', smartObjectUuid);
-  formData.append('smart_object_info', JSON.stringify(smartObjectInfo || {}));
-  
-  const res = await fetch('https://jeg-redesign.onrender.com/create-mockup', {
-    method: 'POST',
-    body: formData
-  });
-  
-  const data = await res.json();
-  if (data.success) {
-    return data.mockup_url;
-  } else {
-    throw new Error(data.error || 'Không tạo được mockup');
+  try {
+    console.log('Creating mockup with params:', {
+      mockupUuid,
+      smartObjectUuid,
+      designImageLength: designBase64 ? designBase64.length : 0,
+      smartObjectInfo
+    });
+    
+    // Gửi dữ liệu dưới dạng FormData
+    const formData = new FormData();
+    formData.append('design_image', designBase64);
+    formData.append('mockup_uuid', mockupUuid);
+    formData.append('smart_object_uuid', smartObjectUuid);
+    formData.append('smart_object_info', JSON.stringify(smartObjectInfo || {}));
+    
+    const res = await fetch('https://jeg-redesign.onrender.com/create-mockup', {
+      method: 'POST',
+      body: formData
+    });
+    
+    console.log('Response status:', res.status);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Error response:', errorText);
+      throw new Error(`HTTP error! status: ${res.status} - ${errorText}`);
+    }
+    
+    const data = await res.json();
+    console.log('Response data:', data);
+    
+    if (data.success) {
+      return data.mockup_url;
+    } else {
+      throw new Error(data.error || 'Không tạo được mockup');
+    }
+  } catch (error) {
+    console.error('Error in createMockupViaBackend:', error);
+    throw error;
   }
 } 
