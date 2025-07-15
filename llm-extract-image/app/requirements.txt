@@ -2,11 +2,11 @@ openai
 pillow 
 rembg 
 numpy
-opencv-python
+opencv-python-headless
 onnxruntime
 requests
 matplotlib
 bcrypt
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
