@@ -1166,6 +1166,38 @@ async function fetchMockupTemplates() {
   return await res.json();
 }
 
+// Hàm nén ảnh base64
+function compressBase64Image(base64String, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Giảm kích thước nếu ảnh quá lớn
+      const maxWidth = 1200;
+      const maxHeight = 1200;
+      let { width, height } = img;
+      
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width *= ratio;
+        height *= ratio;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Chuyển về base64 với quality thấp hơn
+      const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressedBase64.split(',')[1]); // Chỉ lấy phần base64, bỏ header
+    };
+    img.src = `data:image/png;base64,${base64String}`;
+  });
+}
+
 // Hàm tạo mockup qua backend
 async function createMockupViaBackend(mockupUuid, smartObjectUuid, designBase64, smartObjectInfo) {
   try {
@@ -1176,9 +1208,14 @@ async function createMockupViaBackend(mockupUuid, smartObjectUuid, designBase64,
       smartObjectInfo
     });
     
+    // Nén ảnh trước khi gửi
+    console.log('Compressing image...');
+    const compressedBase64 = await compressBase64Image(designBase64, 0.7);
+    console.log('Compressed image length:', compressedBase64.length);
+    
     // Gửi dữ liệu dưới dạng FormData
     const formData = new FormData();
-    formData.append('design_image', designBase64);
+    formData.append('design_image', compressedBase64);
     formData.append('mockup_uuid', mockupUuid);
     formData.append('smart_object_uuid', smartObjectUuid);
     formData.append('smart_object_info', JSON.stringify(smartObjectInfo || {}));
