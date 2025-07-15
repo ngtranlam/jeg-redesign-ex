@@ -26,20 +26,34 @@ ei = ExtractImage()
 
 # Hàm upload ảnh lên ImgBB
 async def upload_image_to_imgbb(image_base64: str, api_key: str):
-    # Bỏ phần header 'data:image/png;base64,' nếu có
-    base64_data = image_base64.split(',')[1] if ',' in image_base64 else image_base64
-    
-    data = {
-        'image': base64_data
-    }
-    
-    response = requests.post(f'https://api.imgbb.com/1/upload?key={api_key}', data=data)
-    result = response.json()
-    
-    if result.get('success'):
-        return result['data']['url']
-    else:
-        raise Exception(f"Upload ảnh thất bại: {result.get('error', {}).get('message', 'Lỗi không xác định')}")
+    try:
+        # Bỏ phần header 'data:image/png;base64,' nếu có
+        if ',' in image_base64:
+            base64_data = image_base64.split(',')[1]
+        else:
+            base64_data = image_base64
+        
+        # Kiểm tra base64 có hợp lệ không
+        import base64
+        try:
+            base64.b64decode(base64_data)
+        except Exception as e:
+            raise Exception(f"Invalid base64 string: {str(e)}")
+        
+        data = {
+            'image': base64_data
+        }
+        
+        response = requests.post(f'https://api.imgbb.com/1/upload?key={api_key}', data=data)
+        result = response.json()
+        
+        if result.get('success'):
+            return result['data']['url']
+        else:
+            error_msg = result.get('error', {}).get('message', 'Lỗi không xác định')
+            raise Exception(f"Upload ảnh thất bại: {error_msg}")
+    except Exception as e:
+        raise Exception(f"ImgBB upload error: {str(e)}")
 
 # Hàm lấy danh sách mockup từ DynamicMockups
 async def fetch_mockup_templates(api_key: str):
@@ -161,6 +175,10 @@ async def create_mockup(
 ):
     """Tạo mockup từ design image"""
     try:
+        print(f"Creating mockup - mockup_uuid: {mockup_uuid}")
+        print(f"Smart object UUID: {smart_object_uuid}")
+        print(f"Design image length: {len(design_image) if design_image else 0}")
+        
         # Lấy API keys từ environment variables
         imgbb_api_key = os.environ.get("IMGBB_API_KEY")
         dynamic_mockups_api_key = os.environ.get("DYNAMIC_MOCKUPS_API_KEY")
@@ -170,13 +188,19 @@ async def create_mockup(
         
         # Parse smart object info
         smart_object_data = json.loads(smart_object_info) if smart_object_info != "{}" else {}
+        print(f"Smart object data: {smart_object_data}")
         
         # Upload ảnh lên ImgBB
+        print("Uploading image to ImgBB...")
         image_url = await upload_image_to_imgbb(design_image, imgbb_api_key)
+        print(f"Image uploaded successfully: {image_url}")
         
         # Tạo mockup
+        print("Creating mockup with Dynamic Mockups...")
         mockup_url = await render_mockup(mockup_uuid, smart_object_uuid, image_url, dynamic_mockups_api_key, smart_object_data)
+        print(f"Mockup created successfully: {mockup_url}")
         
         return JSONResponse(content={"success": True, "mockup_url": mockup_url})
     except Exception as e:
+        print(f"Error creating mockup: {str(e)}")
         return JSONResponse(content={"success": False, "error": str(e)}, status_code=500) 
