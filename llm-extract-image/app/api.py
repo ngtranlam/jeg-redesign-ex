@@ -166,16 +166,23 @@ async def get_mockup_templates():
     except Exception as e:
         return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
 
+class CreateMockupRequest:
+    def __init__(self, design_image: str, mockup_uuid: str, smart_object_uuid: str, smart_object_info: dict = None):
+        self.design_image = design_image
+        self.mockup_uuid = mockup_uuid
+        self.smart_object_uuid = smart_object_uuid
+        self.smart_object_info = smart_object_info or {}
+
 @app.post("/create-mockup")
 async def create_mockup(request: Request):
     """Tạo mockup từ design image"""
     try:
-        # Lấy dữ liệu từ form
-        form_data = await request.form()
-        design_image = form_data.get("design_image")
-        mockup_uuid = form_data.get("mockup_uuid")
-        smart_object_uuid = form_data.get("smart_object_uuid")
-        smart_object_info = form_data.get("smart_object_info", "{}")
+        # Lấy dữ liệu từ JSON
+        json_data = await request.json()
+        design_image = json_data.get("design_image")
+        mockup_uuid = json_data.get("mockup_uuid")
+        smart_object_uuid = json_data.get("smart_object_uuid")
+        smart_object_info = json_data.get("smart_object_info", {})
         
         print(f"Creating mockup - mockup_uuid: {mockup_uuid}")
         print(f"Smart object UUID: {smart_object_uuid}")
@@ -192,8 +199,8 @@ async def create_mockup(request: Request):
         if not imgbb_api_key or not dynamic_mockups_api_key:
             return JSONResponse(content={"success": False, "error": "API keys are required."}, status_code=400)
         
-        # Parse smart object info
-        smart_object_data = json.loads(smart_object_info) if smart_object_info != "{}" else {}
+        # Smart object info đã là dict rồi, không cần parse JSON
+        smart_object_data = smart_object_info
         print(f"Smart object data: {smart_object_data}")
         
         # Upload ảnh lên ImgBB

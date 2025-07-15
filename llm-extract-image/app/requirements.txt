@@ -10,3 +10,4 @@ bcrypt
 fastapi
 uvicorn[standard]
 python-multipart
+ 
