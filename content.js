@@ -656,11 +656,11 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   mockupBtn.onclick = function() {
     // Ẩn popup cũ, show popup mockup
     bg.style.display = 'none';
-    showMockupPopup(lastResultImgBase64);
+    showMockupPopup(lastResultImgBase64, dataUrl);
   };
 
   // Hàm show popup mockup
-  function showMockupPopup(designBase64) {
+  function showMockupPopup(designBase64, originalImageBase64) {
     // Xoá popup mockup cũ nếu có
     const oldMockup = document.getElementById('jeg-mockup-popup-bg');
     if (oldMockup) oldMockup.remove();
@@ -1000,13 +1000,29 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     downloadMockupBtn.style.display = 'none';
     rightTopGroup.appendChild(downloadMockupBtn);
 
+    // Nút lưu sản phẩm (ẩn ban đầu)
+    const saveProductBtn = document.createElement('button');
+    saveProductBtn.textContent = 'LƯU SẢN PHẨM';
+    saveProductBtn.style.height = '48px';
+    saveProductBtn.style.padding = '0 28px';
+    saveProductBtn.style.borderRadius = '8px';
+    saveProductBtn.style.fontWeight = 'bold';
+    saveProductBtn.style.fontSize = '18px';
+    saveProductBtn.style.border = '2.5px solid #4caf50';
+    saveProductBtn.style.background = '#4caf50';
+    saveProductBtn.style.color = '#fff';
+    saveProductBtn.style.cursor = 'pointer';
+    saveProductBtn.style.margin = '0';
+    saveProductBtn.style.display = 'none';
+    rightTopGroup.appendChild(saveProductBtn);
+
     // Xử lý nút Quay lại
     backBtn.onclick = function() {
       mockupBg.remove();
       bg.style.display = 'flex';
     };
 
-    // Xử lý nút Tạo Mockup (tạm thời chỉ hiện nút tải về)
+    // Xử lý nút Tạo Mockup 
     createBtn.onclick = function() {
       if (!selectedMockup || !selectedSmartObject) {
         alert('Vui lòng chọn mẫu mockup trước!');
@@ -1019,7 +1035,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       }
       
       createBtn.disabled = true;
-      createBtn.textContent = 'Đang tạo mockup...';
+      createBtn.textContent = 'Đang upload ảnh...';
       
       // Hiển thị loading trên mẫu mockup
       const mockupPreview = document.getElementById('mockup-preview');
@@ -1074,18 +1090,25 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
         }
       }
       
-      // Kiểm tra designBase64 trước khi gọi backend
-      if (!designBase64) {
-        alert('Không có ảnh design để tạo mockup!');
-        createBtn.disabled = false;
-        createBtn.textContent = 'CREATE MOCKUP';
-        return;
-      }
+      // API Keys
+      const imgbbApiKey = 'b248161838895d85e5ac6884c5f0de07';
+      const dynamicMockupsApiKey = '79d70e34-104c-493c-8553-723102e37207:f1afba7b448fe18ec304c8c71a0768f5756e3973b50bcd7745f6815be4e2f1ef';
       
-      console.log('Design base64 sample:', designBase64.substring(0, 100) + '...');
-      
-      // Gọi backend để tạo mockup
-      createMockupViaBackend(selectedMockup.uuid, selectedSmartObject.uuid, designBase64, selectedSmartObject)
+      // Upload ảnh lên ImgBB trước
+      uploadImageToImgBB(designBase64, imgbbApiKey)
+        .then(imageUrl => {
+          console.log('Ảnh đã upload thành công:', imageUrl);
+          createBtn.textContent = 'Đang tạo mockup...';
+          
+          // Cập nhật loading text
+          const loadingText = document.getElementById('loading-text');
+          if (loadingText) {
+            loadingText.textContent = 'Đang render mockup...';
+          }
+          
+          // Gọi API DynamicMockups để render mockup
+          return renderMockup(selectedMockup.uuid, selectedSmartObject.uuid, imageUrl, dynamicMockupsApiKey, selectedSmartObject);
+        })
         .then(mockupUrl => {
           console.log('Mockup đã tạo thành công:', mockupUrl);
           
@@ -1113,6 +1136,15 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
             a.download = 'mockup.jpg';
             a.click();
           };
+
+          // Hiển thị nút lưu sản phẩm
+          saveProductBtn.style.display = 'block';
+          saveProductBtn.onclick = () => {
+            // designBase64: ảnh thiết kế đã xử lý
+            // mockupUrl: URL mockup vừa tạo
+            // originalImageBase64: ảnh gốc đã crop từ popup design
+            saveProductData(designBase64, mockupUrl, originalImageBase64);
+          };
           
           createBtn.disabled = false;
           createBtn.textContent = 'Create mockup';
@@ -1137,7 +1169,6 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
 
     document.body.appendChild(mockupBg);
     mockupBg.appendChild(popup);
-    // Không cần gọi API ở đây nữa vì sẽ gọi khi user nhấn nút chọn mockup
   }
 
   bg.appendChild(popup);
@@ -1154,6 +1185,471 @@ function dataURLtoBlob(dataurl) {
   return new Blob([u8arr], {type:mime});
 }
 
+// === PRODUCT SCRAPING SYSTEM ===
+
+// Platform detection
+function detectPlatform() {
+  const hostname = window.location.hostname.toLowerCase();
+  
+  if (hostname.includes('amazon.')) return 'amazon';
+  if (hostname.includes('etsy.')) return 'etsy';
+  if (document.querySelector('script[src*="shopify"]') || 
+      document.querySelector('meta[name="generator"][content*="Shopify"]') ||
+      document.querySelector('script[src*="shopify-analytics"]') ||
+      document.querySelector('link[href*="shopify"]')) {
+    return 'shopify';
+  }
+  
+  return 'unknown';
+}
+
+// Platform-specific selectors
+const PLATFORM_SELECTORS = {
+  amazon: {
+    title: '#productTitle',
+    price: '.a-price-whole, .a-price .a-offscreen',
+    originalPrice: '.a-price.a-text-price .a-offscreen',
+    rating: '.a-icon-alt',
+    reviewCount: '#acrCustomerReviewText',
+    shop: '#bylineInfo',
+    description: 'ul.a-unordered-list.a-vertical.a-spacing-small, #feature-bullets ul, #productDescription',
+    images: '#landingImage, .a-dynamic-image'
+  },
+  
+  etsy: {
+    title: '[data-test-id="listing-page-title"], h1',
+    price: '.currency-value, [data-test-id="price"]',
+    originalPrice: '.was-price',
+    rating: '.shop2-review-rating, .rating-star',
+    reviewCount: '.shop2-review-count, .review-count',
+    shop: '.shop-name, [data-test-id="shop-name"]',
+    description: '[data-test-id="listing-page-description"], .listing-page-description',
+    images: '.listing-page-image img, .image-carousel-image img'
+  },
+  
+  shopify: {
+    title: '.product-title, .product__title, h1.product-single__title, .product-form__title',
+    price: '.price, .product-price, .product__price, .price__current',
+    originalPrice: '.compare-price, .product__price--compare, .price__was',
+    rating: '.stamped-review-header-starrating, .spr-starrating',
+    reviewCount: '.stamped-review-header-title, .spr-summary-actions-togglereviews',
+    shop: 'header .logo, .site-title, .header__heading',
+    description: '.product-description, .product__description, .product-single__description',
+    images: '.product-image img, .product__media img, .product-single__photos img'
+  }
+};
+
+// Scrape product information
+function scrapeProductInfo() {
+  const platform = detectPlatform();
+  if (platform === 'unknown') {
+    console.log('Unknown platform, skipping scraping');
+    return null;
+  }
+  
+  const selectors = PLATFORM_SELECTORS[platform];
+  const productInfo = {
+    platform: platform,
+    url: window.location.href
+  };
+  
+  try {
+    // Title
+    const titleEl = document.querySelector(selectors.title);
+    productInfo.title = titleEl ? titleEl.textContent.trim() : '';
+    
+    // Price
+    const priceEl = document.querySelector(selectors.price);
+    productInfo.price = priceEl ? priceEl.textContent.trim() : '';
+    
+    // Original price
+    const originalPriceEl = document.querySelector(selectors.originalPrice);
+    productInfo.originalPrice = originalPriceEl ? originalPriceEl.textContent.trim() : '';
+    
+    // Rating
+    const ratingEl = document.querySelector(selectors.rating);
+    productInfo.rating = ratingEl ? ratingEl.textContent.trim() : '';
+    
+    // Review count
+    const reviewCountEl = document.querySelector(selectors.reviewCount);
+    productInfo.reviewCount = reviewCountEl ? reviewCountEl.textContent.trim() : '';
+    
+    // Shop
+    const shopEl = document.querySelector(selectors.shop);
+    productInfo.shop = shopEl ? shopEl.textContent.trim() : '';
+    
+    // Description
+    const descEl = document.querySelector(selectors.description);
+    let description = '';
+    if (descEl) {
+      // Clean up description text
+      description = descEl.textContent
+        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+        .replace(/\n+/g, ' ')  // Replace newlines with space
+        .trim();
+    }
+    productInfo.description = description;
+    
+    // Extract keywords from title only
+    productInfo.keywords = extractKeywords(productInfo.title);
+    
+    console.log('Scraped product info:', productInfo);
+    return productInfo;
+    
+  } catch (error) {
+    console.error('Error scraping product info:', error);
+    return null;
+  }
+}
+
+// Extract meaningful keyword phrases
+function extractKeywords(text) {
+  if (!text) return [];
+  
+  // Clean and normalize text
+  const cleanText = text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  const keywords = [];
+  
+  // 1. Extract brand/product patterns
+  const brandPatterns = [
+    /(\w+)\s+(shirt|tshirt|tee|hoodie|dress|pants|jeans|jacket|sweater|blouse)/g,
+    /(\w+)\s+(bag|purse|wallet|backpack|handbag)/g,
+    /(\w+)\s+(shoes|sneakers|boots|sandals|heels)/g,
+    /(\w+)\s+(watch|jewelry|necklace|bracelet|ring)/g,
+    /(\w+)\s+(phone|case|cover|accessory)/g
+  ];
+  
+  brandPatterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(cleanText)) !== null) {
+      keywords.push(match[0]);
+    }
+  });
+  
+  // 2. Extract meaningful phrases (2-3 words)
+  const words = cleanText.split(' ').filter(word => word.length > 2);
+  
+  // Skip common words for phrases
+  const skipWords = ['the', 'and', 'for', 'with', 'from', 'made', 'high', 'quality', 'soft', 'comfortable'];
+  
+  for (let i = 0; i < words.length - 1; i++) {
+    const word1 = words[i];
+    const word2 = words[i + 1];
+    
+    if (!skipWords.includes(word1) && !skipWords.includes(word2)) {
+      const phrase = `${word1} ${word2}`;
+      if (!keywords.includes(phrase)) {
+        keywords.push(phrase);
+      }
+    }
+  }
+  
+  // 3. Extract single important words
+  const importantWords = words.filter(word => 
+    !skipWords.includes(word) && 
+    !word.match(/^\d+$/) && 
+    !word.match(/^(xs|sm|md|lg|xl|xxl|xxxl)$/) &&
+    word.length > 3
+  );
+  
+  // Add unique important words
+  importantWords.forEach(word => {
+    if (!keywords.some(kw => kw.includes(word))) {
+      keywords.push(word);
+    }
+  });
+  
+  // 4. Clean up and limit results
+  return keywords
+    .filter(kw => kw.length > 2)
+    .slice(0, 6); // Limit to 6 meaningful keywords
+}
+
+// === LOCAL STORAGE SYSTEM ===
+
+// IndexedDB setup
+let db;
+const DB_NAME = 'JEGProductsDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'products';
+
+// Initialize IndexedDB
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => {
+      console.error('IndexedDB error:', request.error);
+      reject(request.error);
+    };
+    
+    request.onsuccess = () => {
+      db = request.result;
+      console.log('IndexedDB initialized successfully');
+      resolve(db);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      db = event.target.result;
+      
+      // Create products store
+      const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      
+      // Create indexes
+      store.createIndex('platform', 'platform', { unique: false });
+      store.createIndex('timestamp', 'timestamp', { unique: false });
+      store.createIndex('title', 'title', { unique: false });
+      
+      console.log('IndexedDB store created');
+    };
+  });
+}
+
+// Save product data to IndexedDB
+function saveProductToDB(productData) {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject('Database not initialized');
+      return;
+    }
+    
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    const request = store.add(productData);
+    
+    request.onsuccess = () => {
+      console.log('Product saved to DB:', request.result);
+      resolve(request.result);
+    };
+    
+    request.onerror = () => {
+      console.error('Error saving product:', request.error);
+      reject(request.error);
+    };
+  });
+}
+
+// Get all products from IndexedDB
+function getAllProducts() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject('Database not initialized');
+      return;
+    }
+    
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    const request = store.getAll();
+    
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+}
+
+// Initialize DB when content script loads
+initDB().catch(console.error);
+
+// === SAVE PRODUCT HANDLER ===
+
+// Main function to save product data
+async function saveProductData(designImageBase64, mockupImageUrl, originalImageBase64) {
+  try {
+    // Scrape product information from current page
+    const productInfo = scrapeProductInfo();
+    
+    if (!productInfo) {
+      alert('Không thể lấy thông tin sản phẩm từ trang này!\nHãy thử trên trang Amazon, Etsy hoặc Shopify.');
+      return;
+    }
+    
+    // Convert mockup URL to base64 for storage
+    const mockupImageBase64 = await urlToBase64(mockupImageUrl);
+    
+    // Create complete product data object
+    const productData = {
+      // Essential product info
+      productName: productInfo.title,
+      platform: productInfo.platform,
+      keywords: productInfo.keywords,
+      description: productInfo.description,
+      url: productInfo.url,
+      
+      // Images
+      designImage: designImageBase64,
+      mockupImage: mockupImageBase64,
+      
+      // Metadata
+      id: generateUniqueId(),
+      timestamp: new Date().toISOString()
+    };
+    
+    // Save to IndexedDB (for future website sync)
+    await saveProductToDB(productData);
+    
+    // Download as JSON file (current local storage)
+    downloadJSON(productData, `product-${productData.id}.json`);
+    
+    // Show success notification
+    showSuccessNotification('Đã lưu sản phẩm thành công! File JSON đã tải về máy.');
+    
+    console.log('Product saved successfully:', productData);
+    
+  } catch (error) {
+    console.error('Error saving product:', error);
+    alert('Có lỗi khi lưu sản phẩm: ' + error.message);
+  }
+}
+
+// Convert URL to base64
+function urlToBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      
+      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+      resolve(dataURL);
+    };
+    
+    img.onerror = function() {
+      reject(new Error('Failed to load image'));
+    };
+    
+    img.src = url;
+  });
+}
+
+// Generate unique ID
+function generateUniqueId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Show success notification
+function showSuccessNotification(message) {
+  const notification = document.createElement('div');
+  notification.textContent = message;
+  notification.style.position = 'fixed';
+  notification.style.top = '20px';
+  notification.style.right = '20px';
+  notification.style.background = '#4caf50';
+  notification.style.color = 'white';
+  notification.style.padding = '12px 24px';
+  notification.style.borderRadius = '6px';
+  notification.style.zIndex = '9999999';
+  notification.style.fontSize = '14px';
+  notification.style.fontWeight = 'bold';
+  notification.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+  
+  document.body.appendChild(notification);
+  
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 3000);
+}
+
+// === UTILITY FUNCTIONS ===
+
+// Download JSON data as file
+function downloadJSON(data, filename) {
+  const jsonString = JSON.stringify(data, null, 2);
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(url);
+}
+
+// Hàm upload ảnh lên ImgBB
+async function uploadImageToImgBB(imageBase64, apiKey) {
+  const formData = new FormData();
+  // Bỏ phần header 'data:image/png;base64,' nếu có
+  const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+  formData.append('image', base64Data);
+  
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+    method: 'POST',
+    body: formData
+  });
+  
+  const data = await res.json();
+  if (data.success) {
+    return data.data.url; // Link ảnh public
+  } else {
+    throw new Error('Upload ảnh thất bại: ' + (data.error ? data.error.message : 'Lỗi không xác định'));
+  }
+}
+
+// Hàm render mockup với DynamicMockups API
+async function renderMockup(mockupUuid, smartObjectUuid, imageUrl, apiKey, smartObjectInfo) {
+  const body = {
+    mockup_uuid: mockupUuid,
+    export_label: 'MOCKUP_' + Date.now(),
+    export_options: {
+      image_format: 'jpg',
+      image_size: 1500,
+      mode: 'download'
+    },
+    smart_objects: [
+      {
+        uuid: smartObjectUuid,
+        asset: {
+          url: imageUrl,
+          fit: 'contain' // Chỉ dùng fit để tự động căn chỉnh, bỏ position và size
+          // Bỏ size và position để tránh conflict với fit
+        },
+        // Sử dụng print area preset nếu có
+        print_area_preset_uuid: smartObjectInfo && smartObjectInfo.print_area_presets && smartObjectInfo.print_area_presets[0] ? smartObjectInfo.print_area_presets[0].uuid : undefined
+      }
+    ]
+  };
+  
+  const res = await fetch('https://app.dynamicmockups.com/api/v1/renders', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  
+  const data = await res.json();
+  if (data.success && data.data && data.data.export_path) {
+    return data.data.export_path;
+  } else {
+    throw new Error(data.message || 'Không tạo được mockup');
+  }
+}
+
 // Hàm lấy danh sách mockup từ backend
 async function fetchMockupTemplates() {
   const res = await fetch('https://jeg-redesign.onrender.com/mockup-templates', {
@@ -1168,54 +1664,4 @@ async function fetchMockupTemplates() {
 
 
 
-// Hàm tạo mockup qua backend
-async function createMockupViaBackend(mockupUuid, smartObjectUuid, designBase64, smartObjectInfo) {
-  try {
-    console.log('Creating mockup with params:', {
-      mockupUuid,
-      smartObjectUuid,
-      designImageLength: designBase64 ? designBase64.length : 0,
-      smartObjectInfo
-    });
-    
-    // Lấy base64 string (bỏ header data:image/png;base64,)
-    const base64String = designBase64.includes(',') ? designBase64.split(',')[1] : designBase64;
-    console.log('Base64 image length:', base64String.length);
-    
-    // Gửi dữ liệu dưới dạng JSON
-    const requestData = {
-      design_image: base64String,
-      mockup_uuid: mockupUuid,
-      smart_object_uuid: smartObjectUuid,
-      smart_object_info: smartObjectInfo || {}
-    };
-    
-    const res = await fetch('https://jeg-redesign.onrender.com/create-mockup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData)
-    });
-    
-    console.log('Response status:', res.status);
-    
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('Error response:', errorText);
-      throw new Error(`HTTP error! status: ${res.status} - ${errorText}`);
-    }
-    
-    const data = await res.json();
-    console.log('Response data:', data);
-    
-    if (data.success) {
-      return data.mockup_url;
-    } else {
-      throw new Error(data.error || 'Không tạo được mockup');
-    }
-  } catch (error) {
-    console.error('Error in createMockupViaBackend:', error);
-    throw error;
-  }
-} 
+ 
