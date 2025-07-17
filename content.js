@@ -30,9 +30,66 @@
   };
   btn.appendChild(iconImg);
 
-  btn.addEventListener('click', startSelection);
+  btn.addEventListener('click', checkUserNameAndStart);
   document.body.appendChild(btn);
 })();
+
+// Kiểm tra tên người dùng trước khi bắt đầu
+function checkUserNameAndStart() {
+  chrome.storage.local.get(['userName'], function(result) {
+    if (result.userName) {
+      // Có tên, cho phép sử dụng
+      startSelection();
+    } else {
+      // Chưa có tên, yêu cầu nhập
+      showNameRequiredNotification();
+    }
+  });
+}
+
+// Hiển thị thông báo yêu cầu nhập tên
+function showNameRequiredNotification() {
+  const notification = document.createElement('div');
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="color: #ef4444; font-size: 18px;">⚠️</div>
+      <div>
+        <div style="font-weight: bold; margin-bottom: 4px;">Vui lòng nhập tên trước khi sử dụng!</div>
+        <div style="font-size: 12px; color: #666;">Nhấp vào icon extension để nhập tên của bạn</div>
+      </div>
+    </div>
+  `;
+  
+  notification.style.position = 'fixed';
+  notification.style.top = '20px';
+  notification.style.right = '20px';
+  notification.style.background = '#fff';
+  notification.style.color = '#333';
+  notification.style.padding = '16px 20px';
+  notification.style.borderRadius = '8px';
+  notification.style.zIndex = '9999999';
+  notification.style.fontSize = '14px';
+  notification.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)';
+  notification.style.border = '2px solid #ef4444';
+  notification.style.maxWidth = '300px';
+  
+  document.body.appendChild(notification);
+  
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 5000);
+}
+
+// Lắng nghe message từ popup khi tên được cập nhật
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'nameUpdated') {
+    console.log('Tên người dùng đã được cập nhật:', message.name);
+    // Có thể thêm logic khác nếu cần
+  }
+});
 
 // --- Insert CSS for overlay & popup (only once) ---
 (function insertCaptureCSS() {
@@ -1465,6 +1522,13 @@ initDB().catch(console.error);
 // Main function to save product data
 async function saveProductData(designImageBase64, mockupImageUrl, originalImageBase64) {
   try {
+    // Lấy tên người dùng từ storage
+    const userName = await new Promise((resolve) => {
+      chrome.storage.local.get(['userName'], function(result) {
+        resolve(result.userName || 'Không rõ');
+      });
+    });
+    
     // Scrape product information from current page
     const productInfo = scrapeProductInfo();
     
@@ -1476,6 +1540,21 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
     // Convert mockup URL to base64 for storage
     const mockupImageBase64 = await urlToBase64(mockupImageUrl);
     
+    // Format ngày giờ theo định dạng Việt Nam
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric'
+    });
+    const formattedTime = now.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const formattedDateTime = `${formattedDate} ${formattedTime}`;
+
     // Create complete product data object
     const productData = {
       // Essential product info
@@ -1489,9 +1568,13 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
       designImage: designImageBase64,
       mockupImage: mockupImageBase64,
       
+      // User info
+      userName: userName,
+      
       // Metadata
       id: generateUniqueId(),
-      timestamp: new Date().toISOString()
+      timestamp: formattedDateTime,
+      timestampRaw: now.toISOString() // Giữ lại timestamp gốc để sort/filter
     };
     
     // Save to IndexedDB (for future website sync)

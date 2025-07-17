@@ -53,6 +53,115 @@
       font-weight: 400;
       line-height: 1.4;
     }
+
+    .content {
+      padding: 24px;
+    }
+
+    .name-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .name-form.hidden {
+      display: none;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+    }
+
+    .form-group label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .form-group input {
+      padding: 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
+    .form-group input.error {
+      border-color: #ef4444;
+    }
+
+    .error-message {
+      color: #ef4444;
+      font-size: 12px;
+      margin-top: 4px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .save-btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .save-btn:hover {
+      background: #2563eb;
+    }
+
+    .save-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .user-info {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .user-info.show {
+      display: flex;
+    }
+
+    .welcome-text {
+      font-size: 16px;
+      font-weight: 500;
+      color: #1f2937;
+    }
+
+    .change-name-btn {
+      background: transparent;
+      color: #6b7280;
+      border: 1px solid #d1d5db;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .change-name-btn:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
     
     .footer {
       padding: 20px 24px;
@@ -88,9 +197,29 @@
     <p class="subtitle">Trích xuất thiết kế, tạo mockup tự động</p>
   </div>
   
+  <div class="content">
+    <!-- Form nhập tên -->
+    <div class="name-form" id="nameForm">
+      <div class="form-group">
+        <label for="userName">Nhập tên của bạn:</label>
+        <input type="text" id="userName" placeholder="Ví dụ: Nguyễn Văn A" maxlength="50">
+        <div class="error-message" id="errorMessage">Vui lòng nhập tên của bạn</div>
+      </div>
+      <button class="save-btn" id="saveBtn">Lưu và Bắt Đầu</button>
+    </div>
+
+    <!-- Thông tin người dùng đã lưu -->
+    <div class="user-info" id="userInfo">
+      <div class="welcome-text">Xin chào, <span id="displayName"></span>!</div>
+      <button class="change-name-btn" id="changeNameBtn">Đổi tên</button>
+    </div>
+  </div>
+  
   <div class="footer">
     <span class="status-indicator"></span>
-    Sẵn sàng sử dụng
+    <span id="statusText">Vui lòng nhập tên để bắt đầu</span>
   </div>
+
+  <script src="popup.js"></script>
 </body>
 </html> 
