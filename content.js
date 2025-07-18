@@ -669,7 +669,23 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
         alert(data.error || 'Lỗi không xác định!');
       }
     } catch (err) {
-      alert('Lỗi kết nối API: ' + err);
+      console.error('Error processing image:', err);
+      rightCol.innerHTML = '';
+      rightCol.textContent = 'Lỗi xử lý';
+      
+      // Thông báo lỗi chi tiết hơn
+      let errorMessage = 'Lỗi xử lý ảnh: ';
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        errorMessage += 'Không thể kết nối tới server xử lý ảnh. Vui lòng thử lại sau.';
+      } else if (err.message.includes('400')) {
+        errorMessage += 'Định dạng ảnh không hợp lệ.';
+      } else if (err.message.includes('500')) {
+        errorMessage += 'Server xử lý ảnh gặp sự cố.';
+      } else {
+        errorMessage += err.message;
+      }
+      
+      showErrorNotification(errorMessage, 5000);
     }
     runBtn.disabled = false;
     runBtn.textContent = 'RUN';
@@ -1041,21 +1057,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     mainContainer.appendChild(mainContent);
     popup.appendChild(mainContainer);
 
-    // Nút tải về mockup (ẩn ban đầu)
-    const downloadMockupBtn = document.createElement('button');
-    downloadMockupBtn.textContent = 'TẢI MOCKUP VỀ';
-    downloadMockupBtn.style.height = '48px';
-    downloadMockupBtn.style.padding = '0 28px';
-    downloadMockupBtn.style.borderRadius = '8px';
-    downloadMockupBtn.style.fontWeight = 'bold';
-    downloadMockupBtn.style.fontSize = '18px';
-    downloadMockupBtn.style.border = '2.5px solid #2196f3';
-    downloadMockupBtn.style.background = '#2196f3';
-    downloadMockupBtn.style.color = '#fff';
-    downloadMockupBtn.style.cursor = 'pointer';
-    downloadMockupBtn.style.margin = '0';
-    downloadMockupBtn.style.display = 'none';
-    rightTopGroup.appendChild(downloadMockupBtn);
+
 
     // Nút lưu sản phẩm (ẩn ban đầu)
     const saveProductBtn = document.createElement('button');
@@ -1186,14 +1188,6 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
           rightCol.innerHTML = ''; // Xóa nội dung cũ
           rightCol.appendChild(mockupImg);
           
-          downloadMockupBtn.style.display = 'block';
-          downloadMockupBtn.onclick = () => {
-            const a = document.createElement('a');
-            a.href = mockupUrl;
-            a.download = 'mockup.jpg';
-            a.click();
-          };
-
           // Hiển thị nút lưu sản phẩm
           saveProductBtn.style.display = 'block';
           saveProductBtn.onclick = () => {
@@ -1202,6 +1196,8 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
             // originalImageBase64: ảnh gốc đã crop từ popup design
             saveProductData(designBase64, mockupUrl, originalImageBase64);
           };
+          
+
           
           createBtn.disabled = false;
           createBtn.textContent = 'Create mockup';
@@ -1540,58 +1536,180 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
     // Convert mockup URL to base64 for storage
     const mockupImageBase64 = await urlToBase64(mockupImageUrl);
     
-    // Format ngày giờ theo định dạng Việt Nam
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric'
+    // Nén thông minh: Design giữ chất lượng cao, Mockup nén mạnh
+    console.log('Original image sizes:', {
+      designImage: Math.round(designImageBase64.length / 1024) + 'KB',
+      mockupImage: Math.round(mockupImageBase64.length / 1024) + 'KB'
     });
-    const formattedTime = now.toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
+    
+    // Design: Giữ PNG trong suốt, chất lượng cao cho in ấn nhưng giảm kích thước
+    const optimizedDesignImage = await smartCompressDesign(designImageBase64);
+    
+    // Mockup: JPEG nén rất mạnh để đảm bảo dưới 8MB
+    const compressedMockupImage = await compressImage(mockupImageBase64, 0.3, 800, 'jpeg');
+    
+    console.log('Optimized image sizes:', {
+      designImage: Math.round(optimizedDesignImage.length / 1024) + 'KB',
+      mockupImage: Math.round(compressedMockupImage.length / 1024) + 'KB'
     });
-    const formattedDateTime = `${formattedDate} ${formattedTime}`;
-
-    // Create complete product data object
-    const productData = {
-      // Essential product info
-      productName: productInfo.title,
-      platform: productInfo.platform,
-      keywords: productInfo.keywords,
-      description: productInfo.description,
-      url: productInfo.url,
-      
-      // Images
-      designImage: designImageBase64,
-      mockupImage: mockupImageBase64,
-      
-      // User info
-      userName: userName,
-      
-      // Metadata
+    
+    // Kiểm tra tổng kích thước và nén thêm nếu cần
+    let finalDesignImage = optimizedDesignImage;
+    let finalMockupImage = compressedMockupImage;
+    
+    const tempData = {
       id: generateUniqueId(),
-      timestamp: formattedDateTime,
-      timestampRaw: now.toISOString() // Giữ lại timestamp gốc để sort/filter
+      productName: productInfo.title, // API expects camelCase → product_name
+      platform: productInfo.platform,
+      userName: userName, // API expects camelCase → user_name
+      keywords: Array.isArray(productInfo.keywords) ? productInfo.keywords : (productInfo.keywords ? productInfo.keywords.split(',').map(k => k.trim()) : []), // JSON array for database
+      description: productInfo.description,
+      originalUrl: productInfo.url, // API expects camelCase → original_url (database schema updated)
+      designImage: finalDesignImage, // API expects camelCase → design_image
+      mockupImage: finalMockupImage, // API expects camelCase → mockup_image
+      // Bỏ extensionId vì database schema không có cột extension_id
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
     
-    // Save to IndexedDB (for future website sync)
+    const totalSizeKB = Math.round(JSON.stringify(tempData).length / 1024);
+    console.log('Total data size:', totalSizeKB + 'KB');
+    
+    // Nếu vượt quá 8MB (8192KB), nén thêm
+    if (totalSizeKB > 8000) { // Để an toàn, check 8000KB thay vì 8192KB
+      console.log('Data too large, applying extra compression...');
+      
+      // Nén design xuống nhỏ hơn
+      finalDesignImage = await smartCompressDesign(designImageBase64, 2000); // Giảm xuống 2000px
+      
+      // Nén mockup cực mạnh
+      finalMockupImage = await compressImage(mockupImageBase64, 0.2, 600, 'jpeg');
+      
+      console.log('Extra compressed sizes:', {
+        designImage: Math.round(finalDesignImage.length / 1024) + 'KB',
+        mockupImage: Math.round(finalMockupImage.length / 1024) + 'KB'
+      });
+    }
+    
+    // Format ngày giờ theo định dạng ISO để gửi API
+    const now = new Date();
+    const timestamp = now.toISOString().replace('T', ' ').substring(0, 19); // Format: 2025-01-15 14:30:00
+
+    // Create product data object theo format API với ảnh đã nén tối ưu
+    const productData = {
+      id: generateUniqueId(),
+      productName: productInfo.title, // API expects camelCase → product_name
+      platform: productInfo.platform,
+      userName: userName, // API expects camelCase → user_name
+      keywords: Array.isArray(productInfo.keywords) ? productInfo.keywords : (productInfo.keywords ? productInfo.keywords.split(',').map(k => k.trim()) : []), // JSON array for database
+      description: productInfo.description,
+      originalUrl: productInfo.url, // API expects camelCase → original_url (database schema updated)
+      designImage: finalDesignImage, // API expects camelCase → design_image
+      mockupImage: finalMockupImage, // API expects camelCase → mockup_image
+      // Bỏ extensionId vì database schema không có cột extension_id
+      timestamp: timestamp
+    };
+    
+    // Debug URL để đảm bảo không bị null/empty
+    console.log('🔍 URL DEBUG:', {
+      'productInfo.url': productInfo.url,
+      'productData.originalUrl': productData.originalUrl,
+      'window.location.href': window.location.href,
+      'URL length': productInfo.url ? productInfo.url.length : 0
+    });
+    
+    // Log kích thước cuối cùng
+    const finalSizeKB = Math.round(JSON.stringify(productData).length / 1024);
+    console.log('Final data size before sending:', finalSizeKB + 'KB');
+    
+    // Gửi dữ liệu lên API của trang web
+    try {
+      await sendProductToAPI(productData);
+      
+      // Show success notification
+      showSuccessNotification('Lưu thành công về JEG Website');
+      
+      console.log('Product saved successfully to website:', productData);
+      
+    } catch (apiError) {
+      // Nếu lỗi API, vẫn backup local
+      console.warn('API failed, saving to local backup:', apiError);
+      
+      const backupData = {
+        ...productData,
+        apiError: apiError.message,
+        backupReason: 'API connection failed'
+      };
+      
+      await saveProductToDB(backupData);
+      downloadJSON(backupData, `product-backup-${backupData.id}.json`);
+      
+      showErrorNotification(`⚠️ Không thể gửi lên trang web: ${apiError.message}\nĐã lưu backup về máy.`, 6000);
+      return; // Thoát khỏi hàm, không chạy code phía dưới
+    }
+    
+    // Backup: Save to IndexedDB (sau khi API thành công)
     await saveProductToDB(productData);
-    
-    // Download as JSON file (current local storage)
-    downloadJSON(productData, `product-${productData.id}.json`);
-    
-    // Show success notification
-    showSuccessNotification('Đã lưu sản phẩm thành công! File JSON đã tải về máy.');
-    
-    console.log('Product saved successfully:', productData);
     
   } catch (error) {
     console.error('Error saving product:', error);
-    alert('Có lỗi khi lưu sản phẩm: ' + error.message);
+    
+    // Nếu API lỗi, vẫn backup local và thông báo
+    try {
+      const backupData = {
+        id: generateUniqueId(),
+        productName: productInfo?.title || 'Không rõ',
+        platform: productInfo?.platform || 'unknown',
+        userName: userName,
+        originalUrl: productInfo?.url || window.location.href, // Database có cột 'original_url'
+        keywords: Array.isArray(productInfo?.keywords) ? productInfo.keywords : (productInfo?.keywords ? productInfo.keywords.split(',').map(k => k.trim()) : []),
+        designImage: designImageBase64,
+        mockupImage: mockupImageBase64,
+        // Bỏ extensionId vì database schema không có cột này
+        timestamp: new Date().toISOString()
+      };
+      await saveProductToDB(backupData);
+      downloadJSON(backupData, `product-backup-${backupData.id}.json`);
+      
+             showErrorNotification('⚠️ Không thể kết nối trang web! Đã lưu backup vào máy và trình duyệt.', 5000);
+    } catch (backupError) {
+      alert('Có lỗi khi lưu sản phẩm: ' + error.message);
+    }
   }
+}
+
+// Hàm gửi dữ liệu lên API của trang web thông qua background script
+async function sendProductToAPI(productData) {
+  return new Promise((resolve, reject) => {
+    console.log('Content script sending product data via background script:', {
+      id: productData.id,
+      productName: productData.productName,
+      platform: productData.platform,
+      userName: productData.userName,
+      originalUrl: productData.originalUrl,
+      keywords: productData.keywords,
+      hasDesignImage: !!productData.designImage,
+      hasMockupImage: !!productData.mockupImage,
+      timestamp: productData.timestamp
+    });
+    
+    // Gửi message tới background script để xử lý API call
+    chrome.runtime.sendMessage({
+      action: 'sendProductToAPI',
+      productData: productData
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error('Lỗi giao tiếp với background script: ' + chrome.runtime.lastError.message));
+        return;
+      }
+      
+      if (response.success) {
+        console.log('Product data sent successfully via background script:', response.data);
+        resolve(response.data);
+      } else {
+        reject(new Error(response.error || 'Lỗi không xác định từ background script'));
+      }
+    });
+  });
 }
 
 // Convert URL to base64
@@ -1625,6 +1743,78 @@ function generateUniqueId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+// Nén ảnh thiết kế thông minh - giữ chất lượng cao cho in ấn
+function smartCompressDesign(base64String, maxDimension = 3000) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Chỉ giảm kích thước nếu quá lớn, giữ tỷ lệ
+      let { width, height } = img;
+      
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = (height * maxDimension) / width;
+          width = maxDimension;
+        } else {
+          width = (width * maxDimension) / height;
+          height = maxDimension;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Vẽ ảnh với nền trong suốt
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Xuất PNG với chất lượng cao, giữ nền trong suốt
+      const optimizedBase64 = canvas.toDataURL('image/png');
+      resolve(optimizedBase64);
+    };
+    img.src = base64String;
+  });
+}
+
+// Nén ảnh mockup - có thể nén mạnh vì chỉ để hiển thị
+function compressImage(base64String, quality = 0.7, maxWidth = 1920, format = 'jpeg') {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Tính toán kích thước mới
+      let { width, height } = img;
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Nếu là JPEG, fill nền trắng trước
+      if (format === 'jpeg') {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+      }
+      
+      // Vẽ ảnh lên canvas
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Xuất ảnh với format và chất lượng tương ứng
+      const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+      const compressedBase64 = canvas.toDataURL(mimeType, quality);
+      resolve(compressedBase64);
+    };
+    img.src = base64String;
+  });
+}
+
 // Show success notification
 function showSuccessNotification(message) {
   const notification = document.createElement('div');
@@ -1640,6 +1830,8 @@ function showSuccessNotification(message) {
   notification.style.fontSize = '14px';
   notification.style.fontWeight = 'bold';
   notification.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+  notification.style.maxWidth = '350px';
+  notification.style.wordWrap = 'break-word';
   
   document.body.appendChild(notification);
   
@@ -1649,6 +1841,35 @@ function showSuccessNotification(message) {
       notification.parentNode.removeChild(notification);
     }
   }, 3000);
+}
+
+// Show error notification
+function showErrorNotification(message, duration = 5000) {
+  const notification = document.createElement('div');
+  notification.textContent = message;
+  notification.style.position = 'fixed';
+  notification.style.top = '20px';
+  notification.style.right = '20px';
+  notification.style.background = '#f44336';
+  notification.style.color = 'white';
+  notification.style.padding = '12px 24px';
+  notification.style.borderRadius = '6px';
+  notification.style.zIndex = '9999999';
+  notification.style.fontSize = '14px';
+  notification.style.fontWeight = 'bold';
+  notification.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+  notification.style.maxWidth = '350px';
+  notification.style.wordWrap = 'break-word';
+  notification.style.border = '2px solid #d32f2f';
+  
+  document.body.appendChild(notification);
+  
+  // Auto remove after specified duration
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, duration);
 }
 
 // === UTILITY FUNCTIONS ===
@@ -1744,6 +1965,8 @@ async function fetchMockupTemplates() {
   if (!res.ok) throw new Error('Không lấy được danh sách mockup');
   return await res.json();
 }
+
+
 
 
 
