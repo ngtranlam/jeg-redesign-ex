@@ -1,17 +1,20 @@
-// Lấy các element
+// Get elements
 const nameForm = document.getElementById('nameForm');
 const userInfo = document.getElementById('userInfo');
 const userNameInput = document.getElementById('userName');
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
 const saveBtn = document.getElementById('saveBtn');
 const errorMessage = document.getElementById('errorMessage');
 const displayName = document.getElementById('displayName');
+const usageCount = document.getElementById('usageCount');
 const changeNameBtn = document.getElementById('changeNameBtn');
 const statusText = document.getElementById('statusText');
 
-// Kiểm tra tên đã lưu khi load popup
+// Check saved name when popup loads
 document.addEventListener('DOMContentLoaded', function() {
   if (chrome && chrome.storage) {
-    chrome.storage.local.get(['userName'], function(result) {
+    chrome.storage.local.get(['userName', 'usageCount'], function(result) {
       if (chrome.runtime.lastError) {
         console.error('Error getting storage:', chrome.runtime.lastError);
         showNameForm();
@@ -19,7 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       
       if (result.userName) {
-        showUserInfo(result.userName);
+        const currentUsageCount = result.usageCount || 0;
+        showUserInfo(result.userName, currentUsageCount);
       } else {
         showNameForm();
       }
@@ -30,43 +34,75 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Xử lý lưu tên
+// Handle save name and login info
 saveBtn.addEventListener('click', function() {
   const name = userNameInput.value.trim();
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value.trim();
   
+  // Validate name (main requirement)
   if (!name) {
-    showError('Vui lòng nhập tên của bạn');
+    showError('Please enter your name');
     return;
   }
 
   if (name.length < 2) {
-    showError('Tên phải có ít nhất 2 ký tự');
+    showError('Name must be at least 2 characters');
+    return;
+  }
+
+  // Validate username (bypass - just check basic format)
+  if (!username) {
+    showError('Please enter username');
+    return;
+  }
+
+  if (username.length < 2) {
+    showError('Username must be at least 2 characters');
+    return;
+  }
+
+  // Validate password (bypass - just check basic format)
+  if (!password) {
+    showError('Please enter password');
+    return;
+  }
+
+  if (password.length < 3) {
+    showError('Password must be at least 3 characters');
     return;
   }
 
   // Disable button while saving
   saveBtn.disabled = true;
-  saveBtn.textContent = 'Đang lưu...';
+  saveBtn.textContent = 'Saving...';
 
-  // Lưu tên vào storage
-  chrome.storage.local.set({ userName: name }, function() {
+  // Save all info to storage (main logic still based on userName)
+  const userData = {
+    userName: name,
+    username: username,
+    password: password, // In bypass mode, just store it
+    loginTime: new Date().toISOString()
+  };
+
+  chrome.storage.local.set({ userName: name, userLogin: userData }, function() {
     if (chrome.runtime.lastError) {
       console.error('Error saving to storage:', chrome.runtime.lastError);
-      showError('Có lỗi khi lưu tên. Vui lòng thử lại.');
+      showError('Error saving information. Please try again.');
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Lưu và Bắt Đầu';
+      saveBtn.textContent = 'Save and Start';
       return;
     }
 
-    console.log('Tên đã lưu thành công:', name);
-    showUserInfo(name);
+    console.log('User information saved successfully:', name);
+    showUserInfo(name, 0); // New user starts with 0 usage
     
-    // Thông báo cho content script biết tên đã được lưu
+    // Notify content script that name has been saved (keep original logic)
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       if (tabs && tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, {action: 'nameUpdated', name: name}, function(response) {
+        chrome.tabs.sendMessage(tabs[0].id, {action: 'nameUpdated', name: name, username: username}, function(response) {
           if (chrome.runtime.lastError) {
-            console.log('Content script not available, but name is saved');
+            console.log('Content script not available, but info is saved');
           }
         });
       }
@@ -74,51 +110,79 @@ saveBtn.addEventListener('click', function() {
     
     // Reset button
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Lưu và Bắt Đầu';
+    saveBtn.textContent = 'Save and Start';
   });
 });
 
-// Xử lý đổi tên
+// Handle change info
 changeNameBtn.addEventListener('click', function() {
   showNameForm();
+  // Clear all inputs
   userNameInput.value = '';
+  usernameInput.value = '';
+  passwordInput.value = '';
 });
 
-// Xử lý nhập Enter
+// Handle Enter key press - navigate through fields
 userNameInput.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    usernameInput.focus();
+  }
+});
+
+usernameInput.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    passwordInput.focus();
+  }
+});
+
+passwordInput.addEventListener('keypress', function(e) {
   if (e.key === 'Enter') {
     saveBtn.click();
   }
 });
 
-// Xử lý input để ẩn lỗi
+// Handle input to hide error
 userNameInput.addEventListener('input', function() {
+  hideError();
+});
+
+usernameInput.addEventListener('input', function() {
+  hideError();
+});
+
+passwordInput.addEventListener('input', function() {
   hideError();
 });
 
 function showNameForm() {
   nameForm.classList.remove('hidden');
   userInfo.classList.remove('show');
-  statusText.textContent = 'Vui lòng nhập tên để bắt đầu';
+  statusText.textContent = 'Please enter your information to start';
   setTimeout(() => {
     userNameInput.focus();
   }, 100);
 }
 
-function showUserInfo(name) {
+function showUserInfo(name, currentUsageCount = 0) {
   nameForm.classList.add('hidden');
   userInfo.classList.add('show');
   displayName.textContent = name;
-  statusText.textContent = 'Sẵn sàng sử dụng';
+  usageCount.textContent = currentUsageCount;
+  statusText.textContent = 'Ready to use';
 }
 
 function showError(message) {
   errorMessage.textContent = message;
   errorMessage.classList.add('show');
   userNameInput.classList.add('error');
+  usernameInput.classList.add('error');
+  passwordInput.classList.add('error');
 }
 
 function hideError() {
   errorMessage.classList.remove('show');
   userNameInput.classList.remove('error');
+  usernameInput.classList.remove('error');
+  passwordInput.classList.remove('error');
 } 

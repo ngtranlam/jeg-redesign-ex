@@ -3,7 +3,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.tabs.captureVisibleTab(null, {format: 'png'}, function(dataUrl) {
       sendResponse({dataUrl});
     });
-    // Bắt buộc return true để dùng sendResponse bất đồng bộ
+    // Required to return true for asynchronous sendResponse
     return true;
   }
   
@@ -15,7 +15,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
   }
   
-  // Xử lý gửi dữ liệu sản phẩm lên API
+  // Handle sending product data to API
   if (message.action === 'sendProductToAPI') {
     sendProductToAPI(message.productData)
       .then(result => {
@@ -24,17 +24,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(error => {
         sendResponse({success: false, error: error.message});
       });
-    return true; // Bắt buộc return true để dùng sendResponse bất đồng bộ
+    return true; // Required to return true for asynchronous sendResponse
   }
 });
 
-// Hàm gửi dữ liệu lên API của trang web (chạy trong background)
+// Function to send data to website API (running in background)
 async function sendProductToAPI(productData) {
   const API_URL = 'https://jegdn.com/api/redesign/receive/';
   
-  // Validate dữ liệu trước khi gửi
+  // Validate data before sending
   if (!productData.id || !productData.productName || !productData.platform || !productData.userName || !productData.originalUrl) {
-    throw new Error('Thiếu thông tin bắt buộc: id, productName, platform, userName hoặc originalUrl');
+    throw new Error('Missing required information: id, productName, platform, userName or originalUrl');
   }
   
   console.log('=== BACKGROUND SCRIPT DEBUG ===');
@@ -53,7 +53,11 @@ async function sendProductToAPI(productData) {
     mockupImageSize: productData.mockupImage ? productData.mockupImage.length : 0
   });
   
-  // Bỏ test connection vì server chỉ hỗ trợ POST method
+  // Debug: Check originalUrl in background script
+  console.log('🔍 BACKGROUND DEBUG originalUrl:', productData.originalUrl);
+  console.log('🔍 BACKGROUND DEBUG full productData keys:', Object.keys(productData));
+  
+  // Skip test connection because server only supports POST method
   console.log('Sending directly to API endpoint (no ping test)...');
   
   try {
@@ -68,9 +72,14 @@ async function sendProductToAPI(productData) {
       'Cache-Control': 'no-cache'
     });
     
-    // Tạo timeout controller
+    // Debug: Check JSON body before sending
+    const requestBody = JSON.stringify(productData);
+    console.log('🔍 REQUEST BODY originalUrl check:', requestBody.includes('originalUrl'));
+    console.log('🔍 REQUEST BODY preview:', requestBody.substring(0, 500) + '...');
+    
+    // Create timeout controller
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 giây timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
     
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -83,11 +92,11 @@ async function sendProductToAPI(productData) {
         'X-Requested-With': 'JEG-Extension',
         'Cache-Control': 'no-cache'
       },
-      body: JSON.stringify(productData),
+      body: requestBody,
       signal: controller.signal
     });
     
-    clearTimeout(timeoutId); // Hủy timeout nếu request thành công
+    clearTimeout(timeoutId); // Cancel timeout if request succeeds
     
     console.log('Response status:', response.status);
     console.log('Response headers:', Object.fromEntries(response.headers.entries()));
@@ -98,18 +107,18 @@ async function sendProductToAPI(productData) {
       throw new Error(`API Error: ${response.status} - ${response.statusText}. Details: ${errorText}`);
     }
     
-    // Kiểm tra response content type
+    // Check response content type
     const contentType = response.headers.get('content-type');
     console.log('Response content-type:', contentType);
     
-    // Lấy response text trước để kiểm tra
+    // Get response text first to check
     const responseText = await response.text();
     console.log('Raw response text:', responseText.substring(0, 200) + '...');
     
-    // Kiểm tra xem có phải JSON không
+    // Check if it's JSON
     if (!contentType || !contentType.includes('application/json')) {
-      console.error('Server không trả về JSON:', responseText);
-      throw new Error(`Server trả về ${contentType || 'unknown'} thay vì JSON. Response: ${responseText.substring(0, 100)}...`);
+      console.error('Server did not return JSON:', responseText);
+      throw new Error(`Server returned ${contentType || 'unknown'} instead of JSON. Response: ${responseText.substring(0, 100)}...`);
     }
     
     // Parse JSON
@@ -120,7 +129,7 @@ async function sendProductToAPI(productData) {
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError);
       console.error('Response text:', responseText);
-      throw new Error(`Server trả về dữ liệu không phải JSON hợp lệ. Response: ${responseText.substring(0, 100)}...`);
+      throw new Error(`Server returned invalid JSON data. Response: ${responseText.substring(0, 100)}...`);
     }
     
     return result;
@@ -128,11 +137,11 @@ async function sendProductToAPI(productData) {
   } catch (error) {
     console.error('Background API Request failed:', error);
     
-    // Kiểm tra loại lỗi để đưa ra thông báo phù hợp
+    // Check error type to provide appropriate message
     if (error.name === 'AbortError') {
-      throw new Error('Request timeout: Server mất quá nhiều thời gian phản hồi (>30 giây).');
+      throw new Error('Request timeout: Server took too long to respond (>30 seconds).');
     } else if (error.name === 'TypeError' && error.message.includes('redirected')) {
-      // Nếu bị redirect, thử lại với allow redirect
+      // If redirected, retry with allow redirect
       console.log('Detected redirect, retrying with follow mode...');
       try {
         const retryResponse = await fetch(API_URL, {
@@ -158,14 +167,14 @@ async function sendProductToAPI(productData) {
         return JSON.parse(responseText);
         
       } catch (retryError) {
-        throw new Error(`Lỗi sau khi retry: ${retryError.message}`);
+        throw new Error(`Error after retry: ${retryError.message}`);
       }
     } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error(`Không thể kết nối tới server (${new URL(API_URL).host}). Vui lòng kiểm tra server có đang chạy không.`);
+      throw new Error(`Cannot connect to server (${new URL(API_URL).host}). Please check if server is running.`);
     } else if (error.message.includes('CORS')) {
-      throw new Error('Lỗi CORS: Server chưa cho phép truy cập từ extension.');
+      throw new Error('CORS error: Server has not allowed access from extension.');
     } else {
-      throw new Error(`Lỗi gửi dữ liệu: ${error.message}`);
+      throw new Error(`Data sending error: ${error.message}`);
     }
   }
 } 

@@ -15,7 +15,7 @@
     boxShadow: '0 2px 8px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center',
     justifyContent: 'center', cursor: 'pointer', transition: 'background 0.2s',
   });
-  btn.title = 'Chụp vùng màn hình';
+  btn.title = 'Capture screen area';
 
   // Icon (bạn thay src nếu muốn)
   const iconImg = document.createElement('img');
@@ -34,28 +34,28 @@
   document.body.appendChild(btn);
 })();
 
-// Kiểm tra tên người dùng trước khi bắt đầu
+// Check user name before starting
 function checkUserNameAndStart() {
   chrome.storage.local.get(['userName'], function(result) {
     if (result.userName) {
-      // Có tên, cho phép sử dụng
+      // Has name, allow usage
       startSelection();
     } else {
-      // Chưa có tên, yêu cầu nhập
+      // No name yet, request input
       showNameRequiredNotification();
     }
   });
 }
 
-// Hiển thị thông báo yêu cầu nhập tên
+// Show notification requesting name input
 function showNameRequiredNotification() {
   const notification = document.createElement('div');
   notification.innerHTML = `
     <div style="display: flex; align-items: center; gap: 12px;">
       <div style="color: #ef4444; font-size: 18px;">⚠️</div>
       <div>
-        <div style="font-weight: bold; margin-bottom: 4px;">Vui lòng nhập tên trước khi sử dụng!</div>
-        <div style="font-size: 12px; color: #666;">Nhấp vào icon extension để nhập tên của bạn</div>
+        <div style="font-weight: bold; margin-bottom: 4px;">Please enter your information before using!</div>
+        <div style="font-size: 12px; color: #666;">Click on the extension icon to login with your JEG Account</div>
       </div>
     </div>
   `;
@@ -83,13 +83,32 @@ function showNameRequiredNotification() {
   }, 5000);
 }
 
-// Lắng nghe message từ popup khi tên được cập nhật
+// Listen for message from popup when name is updated
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'nameUpdated') {
-    console.log('Tên người dùng đã được cập nhật:', message.name);
-    // Có thể thêm logic khác nếu cần
+    console.log('User name has been updated:', message.name);
+    if (message.username) {
+      console.log('Username:', message.username);
+    }
+    // Can add other logic if needed
   }
 });
+
+// Function to increment usage count
+function incrementUsageCount() {
+  chrome.storage.local.get(['usageCount'], function(result) {
+    const currentCount = result.usageCount || 0;
+    const newCount = currentCount + 1;
+    
+    chrome.storage.local.set({ usageCount: newCount }, function() {
+      if (chrome.runtime.lastError) {
+        console.error('Error updating usage count:', chrome.runtime.lastError);
+      } else {
+        console.log('Usage count updated to:', newCount);
+      }
+    });
+  });
+}
 
 // --- Insert CSS for overlay & popup (only once) ---
 (function insertCaptureCSS() {
@@ -237,7 +256,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   popup.style.position = 'relative';
   popup.style.justifyContent = 'space-between';
 
-  // Thanh chọn Provider, Model về sát mép trên bên trái, RUN sát phải
+  // Top bar with Provider, Model selection on the left, RUN button on the right
   const topBar = document.createElement('div');
   topBar.style.display = 'flex';
   topBar.style.justifyContent = 'space-between';
@@ -291,7 +310,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modelSelect.style.fontSize = '15px';
   modelSelect.style.borderRadius = '6px';
   modelSelect.style.border = '1px solid #888';
-  // Hàm cập nhật model theo provider
+  // Function to update model options based on provider
   function updateModelOptions() {
     if (providerSelect.value === 'openai') {
       modelSelect.innerHTML = '<option>gpt-4.1</option><option>GPT Image 1</option>';
@@ -324,30 +343,30 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   modeWrap.appendChild(modeLabel);
   modeWrap.appendChild(modeSelect);
 
-  // PROMPT input (2 ô, nằm ngang)
+  // PROMPT input (2 fields, horizontal)
   const promptWrap = document.createElement('div');
-  promptWrap.style.display = 'none'; // Ẩn mặc định
+  promptWrap.style.display = 'none'; // Hidden by default
   promptWrap.style.flexDirection = 'row';
   promptWrap.style.gap = '24px';
   promptWrap.style.marginTop = '8px';
   promptWrap.style.width = '100%';
   promptWrap.style.alignItems = 'flex-end';
 
-  // Col 1: Đối tượng cần thay thế
+  // Col 1: Object to replace
   const promptCol1 = document.createElement('div');
   promptCol1.style.display = 'flex';
   promptCol1.style.flexDirection = 'column';
   promptCol1.style.gap = '4px';
   promptCol1.style.flex = '1';
   const objectLabel = document.createElement('label');
-  objectLabel.textContent = 'Đối tượng cần thay thế:';
+  objectLabel.textContent = 'Object to replace:';
   objectLabel.style.fontWeight = 'bold';
   objectLabel.style.fontSize = '14px';
   objectLabel.style.textAlign = 'left';
   objectLabel.style.width = '100%';
   const objectInput = document.createElement('input');
   objectInput.type = 'text';
-  objectInput.placeholder = 'Ví dụ: text trên áo, logo, màu nền...';
+  objectInput.placeholder = 'e.g. text on shirt, logo, background color...';
   objectInput.style.padding = '6px 12px';
   objectInput.style.fontSize = '15px';
   objectInput.style.borderRadius = '6px';
@@ -356,21 +375,21 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   promptCol1.appendChild(objectLabel);
   promptCol1.appendChild(objectInput);
 
-  // Col 2: Nội dung thay thế
+  // Col 2: Replacement content
   const promptCol2 = document.createElement('div');
   promptCol2.style.display = 'flex';
   promptCol2.style.flexDirection = 'column';
   promptCol2.style.gap = '4px';
   promptCol2.style.flex = '1';
   const contentLabel = document.createElement('label');
-  contentLabel.textContent = 'Nội dung thay thế:';
+  contentLabel.textContent = 'Replacement content:';
   contentLabel.style.fontWeight = 'bold';
   contentLabel.style.fontSize = '14px';
   contentLabel.style.textAlign = 'left';
   contentLabel.style.width = '100%';
   const contentInput = document.createElement('input');
   contentInput.type = 'text';
-  contentInput.placeholder = 'Ví dụ: text mới, logo mới, màu mới...';
+  contentInput.placeholder = 'e.g. new text, new logo, new color...';
   contentInput.style.padding = '6px 12px';
   contentInput.style.fontSize = '15px';
   contentInput.style.borderRadius = '6px';
@@ -379,11 +398,11 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   promptCol2.appendChild(contentLabel);
   promptCol2.appendChild(contentInput);
 
-  // Thêm 2 col vào promptWrap
+  // Add 2 columns to promptWrap
   promptWrap.appendChild(promptCol1);
   promptWrap.appendChild(promptCol2);
 
-  // Hiện/ẩn prompt khi chọn mode
+  // Show/hide prompt when selecting mode
   modeSelect.addEventListener('change', function() {
     if (modeSelect.value === 'custom') {
       promptWrap.style.display = 'flex';
@@ -392,8 +411,8 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     }
   });
 
-  // Tạo 2 hàng cho input
-  // Hàng 1: Provider, Model, Mode
+  // Create 2 rows for input
+  // Row 1: Provider, Model, Mode
   const row1 = document.createElement('div');
   row1.style.display = 'flex';
   row1.style.gap = '24px';
@@ -402,19 +421,19 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   row1.appendChild(modelWrap);
   row1.appendChild(modeWrap);
 
-  // Hàng 2: Đối tượng cần thay thế, Nội dung thay thế
+  // Row 2: Object to replace, Replacement content
   const row2 = document.createElement('div');
   row2.style.display = 'flex';
   row2.style.gap = '24px';
   row2.style.alignItems = 'flex-end';
   row2.appendChild(promptWrap);
 
-  // Xoá các appendChild cũ của leftTopGroup
+  // Remove old appendChild of leftTopGroup
   leftTopGroup.appendChild(row1);
   leftTopGroup.appendChild(row2);
   topBar.appendChild(leftTopGroup);
 
-  // Nút RUN, Cancel, Download thẳng hàng, đều nhau
+  // RUN, Cancel, Download buttons in a row, evenly spaced
   const runBtn = document.createElement('button');
   runBtn.textContent = 'RUN';
   runBtn.style.height = '48px';
@@ -475,7 +494,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   topBar.appendChild(topBtnGroup);
   popup.appendChild(topBar);
 
-  // Container căn giữa 2 khung ảnh cả chiều ngang và dọc, dịch lên trên
+  // Container centering 2 image frames both horizontally and vertically, moved up
   const centerContainer = document.createElement('div');
   centerContainer.style.flex = '1';
   centerContainer.style.display = 'flex';
@@ -484,9 +503,9 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   centerContainer.style.width = '100%';
   centerContainer.style.height = '100%';
   centerContainer.style.marginTop = '10px'; // dịch lên trên
-  centerContainer.style.marginBottom = '60px'; // tăng khoảng cách với bottom bar
+  centerContainer.style.marginBottom = '60px'; // increase distance from bottom bar
 
-  // 2 cột: Hình gốc - Kết quả
+  // 2 columns: Original image - Result
   const mainContent = document.createElement('div');
   mainContent.style.display = 'flex';
   mainContent.style.flexDirection = 'row';
@@ -496,7 +515,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   mainContent.style.width = 'auto';
   mainContent.style.height = 'auto';
 
-  // Cột trái: Hình gốc
+  // Left column: Original image
   const leftColWrap = document.createElement('div');
   leftColWrap.style.display = 'flex';
   leftColWrap.style.flexDirection = 'column';
@@ -526,7 +545,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   leftCol.style.color = '#222';
   leftCol.style.textAlign = 'center';
   if (isError) {
-    leftCol.textContent = 'LỖI';
+    leftCol.textContent = 'ERROR';
   } else if (dataUrl) {
     const img = document.createElement('img');
     img.src = dataUrl;
@@ -539,7 +558,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   }
   leftColWrap.appendChild(leftCol);
 
-  // Cột phải: Kết quả
+  // Right column: Result
   const rightColWrap = document.createElement('div');
   rightColWrap.style.display = 'flex';
   rightColWrap.style.flexDirection = 'column';
@@ -570,7 +589,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   rightCol.style.textAlign = 'center';
   let resultImg = null;
   if (isError) {
-    rightCol.textContent = 'LỖI';
+    rightCol.textContent = 'ERROR';
   } else {
     resultImg = document.createElement('img');
     resultImg.style.maxWidth = '100%';
@@ -586,7 +605,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   centerContainer.appendChild(mainContent);
   popup.appendChild(centerContainer);
 
-  // Thay bottomBar bằng bảng chọn màu, title bên trái các ô màu
+  // Replace bottomBar with color selection panel, title on the left of color boxes
   const colorBarWrap = document.createElement('div');
   colorBarWrap.style.display = 'flex';
   colorBarWrap.style.flexDirection = 'row';
@@ -609,13 +628,13 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   colorBar.style.justifyContent = 'flex-end';
   colorBar.style.gap = '14px';
 
-  // 7 màu cơ bản
+  // 7 basic colors
   const colors = ['#ffffff', '#000000', '#888888', '#ff9800', '#2196f3', '#4caf50', '#e91e63', '#f44336'];
   colors.forEach(color => {
     const colorBtn = document.createElement('button');
     colorBtn.style.width = '16px';
     colorBtn.style.height = '24px';
-    colorBtn.style.borderRadius = '0'; // hình chữ nhật đứng
+    colorBtn.style.borderRadius = '0'; // vertical rectangle
     colorBtn.style.border = '2.5px solid #888';
     colorBtn.style.background = color;
     colorBtn.style.cursor = 'pointer';
@@ -629,7 +648,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   colorBarWrap.appendChild(colorBar);
   popup.appendChild(colorBarWrap);
 
-  // Xử lý nút RUN
+  // Handle RUN button
   runBtn.onclick = async function() {
     runBtn.disabled = true;
     runBtn.textContent = 'Processing...';
@@ -637,12 +656,12 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     if (resultImg) {
       resultImg.style.display = 'none';
     }
-    // Gửi ảnh lên API backend
+    // Send image to backend API
     try {
       const blob = dataURLtoBlob(dataUrl);
       const formData = new FormData();
       formData.append('file', blob, 'capture.png');
-      // API key sẽ được xử lý ở backend, không cần gửi từ frontend
+      // API key will be handled at backend, no need to send from frontend
       let modelToSend = modelSelect.value;
       if (providerSelect.value === 'gemini') {
         modelToSend = 'gpt-4.1';
@@ -651,10 +670,10 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       formData.append('size', '4500');
       let customPrompt = '';
       if (modeSelect.value === 'custom') {
-        customPrompt = `Thay thế ${objectInput.value || '[đối tượng]'} bằng ${contentInput.value || '[nội dung mới]'}.`;
+        customPrompt = `Replace ${objectInput.value || '[object]'} with ${contentInput.value || '[new content]'}.`;
       }
       formData.append('prompt', customPrompt);
-      formData.append('mode', modeSelect.value); // gửi mode lên API
+      formData.append('mode', modeSelect.value); // send mode to API
       const res = await fetch('https://jeg-redesign.onrender.com/extract-design', {
         method: 'POST',
         body: formData
@@ -666,21 +685,21 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
         downloadBtn.disabled = false;
         lastResultImgBase64 = 'data:image/png;base64,' + data.image_base64;
       } else {
-        alert(data.error || 'Lỗi không xác định!');
+        alert(data.error || 'Unknown error!');
       }
     } catch (err) {
       console.error('Error processing image:', err);
       rightCol.innerHTML = '';
-      rightCol.textContent = 'Lỗi xử lý';
+      rightCol.textContent = 'Processing Error';
       
-      // Thông báo lỗi chi tiết hơn
-      let errorMessage = 'Lỗi xử lý ảnh: ';
+      // More detailed error message
+      let errorMessage = 'Image processing error: ';
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        errorMessage += 'Không thể kết nối tới server xử lý ảnh. Vui lòng thử lại sau.';
+        errorMessage += 'Cannot connect to image processing server. Please try again later.';
       } else if (err.message.includes('400')) {
-        errorMessage += 'Định dạng ảnh không hợp lệ.';
+        errorMessage += 'Invalid image format.';
       } else if (err.message.includes('500')) {
-        errorMessage += 'Server xử lý ảnh gặp sự cố.';
+        errorMessage += 'Image processing server encountered an error.';
       } else {
         errorMessage += err.message;
       }
@@ -704,7 +723,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     }
   };
 
-  // Thêm nút Tạo Mockup
+  // Add Create Mockup button
   const mockupBtn = document.createElement('button');
   mockupBtn.textContent = 'Create Mockup';
   mockupBtn.style.height = '48px';
@@ -722,22 +741,22 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
   mockupBtn.style.margin = '0';
   topBtnGroup.appendChild(mockupBtn);
 
-  // Biến lưu ảnh kết quả base64
+  // Variable to store result image base64
   let lastResultImgBase64 = null;
 
-  // Xử lý nút Tạo Mockup
+  // Handle Create Mockup button
   mockupBtn.onclick = function() {
-    // Ẩn popup cũ, show popup mockup
+    // Hide old popup, show mockup popup
     bg.style.display = 'none';
     showMockupPopup(lastResultImgBase64, dataUrl);
   };
 
-  // Hàm show popup mockup
+  // Function to show mockup popup
   function showMockupPopup(designBase64, originalImageBase64) {
-    // Xoá popup mockup cũ nếu có
+    // Remove old mockup popup if exists
     const oldMockup = document.getElementById('jeg-mockup-popup-bg');
     if (oldMockup) oldMockup.remove();
-    // Tạo popup mới
+    // Create new popup
     const mockupBg = document.createElement('div');
     mockupBg.id = 'jeg-mockup-popup-bg';
     mockupBg.style.position = 'fixed';
@@ -766,7 +785,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     popup.style.position = 'relative';
     popup.style.justifyContent = 'space-between';
 
-    // Thanh thiết lập mockup ở trên
+    // Mockup settings bar at the top
     const topBar = document.createElement('div');
     topBar.style.display = 'flex';
     topBar.style.justifyContent = 'space-between';
@@ -776,25 +795,25 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     topBar.style.boxSizing = 'border-box';
     topBar.style.width = '100%';
 
-    // Bên trái: Tiêu đề và chọn template
+    // Left side: Title and template selection
     const leftTopGroup = document.createElement('div');
     leftTopGroup.style.display = 'flex';
     leftTopGroup.style.gap = '24px';
     leftTopGroup.style.alignItems = 'center';
 
-    // Tiêu đề
+    // Title
     // const title = document.createElement('div');
-    // title.textContent = 'TẠO MOCKUP ÁO THUN';
+    // title.textContent = 'CREATE T-SHIRT MOCKUP';
     // title.style.fontWeight = 'bold';
     // title.style.fontSize = '22px';
     // title.style.letterSpacing = '2px';
     // leftTopGroup.appendChild(title);
 
-    // --- Thay dropdown chọn template bằng nút chọn mockup ---
+    // --- Replace template dropdown with mockup selection button ---
     let selectedMockup = null;
-    let selectedSmartObject = null; // Thêm biến lưu smart object
+    let selectedSmartObject = null; // Add variable to store smart object
     const selectMockupBtn = document.createElement('button');
-    selectMockupBtn.textContent = 'Chọn mẫu mockup';
+    selectMockupBtn.textContent = 'Select mockup template';
     selectMockupBtn.style.padding = '8px 18px';
     selectMockupBtn.style.fontSize = '16px';
     selectMockupBtn.style.borderRadius = '6px';
@@ -807,7 +826,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     };
     leftTopGroup.appendChild(selectMockupBtn);
 
-    // Hàm hiện popup chọn mockup
+    // Function to show mockup selection popup
     function showMockupSelectPopup() {
       const old = document.getElementById('jeg-mockup-select-popup');
       if (old) old.remove();
@@ -827,17 +846,191 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       popup.style.background = '#fff';
       popup.style.borderRadius = '10px';
       popup.style.padding = '32px';
-      popup.style.minWidth = '600px';
+      popup.style.minWidth = '700px';
       popup.style.maxWidth = '90vw';
       popup.style.maxHeight = '80vh';
       popup.style.overflowY = 'auto';
       popup.style.boxShadow = '0 4px 32px rgba(0,0,0,0.18)';
       const title = document.createElement('div');
-      title.textContent = 'Chọn mẫu mockup';
+      title.textContent = 'Select mockup template';
       title.style.fontWeight = 'bold';
       title.style.fontSize = '22px';
       title.style.marginBottom = '24px';
       popup.appendChild(title);
+
+      // Add custom mockup upload section
+      const uploadSection = document.createElement('div');
+      uploadSection.style.marginBottom = '32px';
+      uploadSection.style.padding = '20px';
+      uploadSection.style.border = '2px dashed #ccc';
+      uploadSection.style.borderRadius = '8px';
+      uploadSection.style.backgroundColor = '#f9f9f9';
+      uploadSection.style.textAlign = 'center';
+
+      const uploadTitle = document.createElement('div');
+      uploadTitle.textContent = 'Upload your mockup template';
+      uploadTitle.style.fontWeight = 'bold';
+      uploadTitle.style.fontSize = '16px';
+      uploadTitle.style.marginBottom = '12px';
+      uploadTitle.style.color = '#333';
+      uploadSection.appendChild(uploadTitle);
+
+      const uploadDesc = document.createElement('div');
+      uploadDesc.textContent = 'Select mockup image file (PNG/JPG) with empty area to attach design';
+      uploadDesc.style.fontSize = '14px';
+      uploadDesc.style.color = '#666';
+      uploadDesc.style.marginBottom = '16px';
+      uploadSection.appendChild(uploadDesc);
+
+      // Hidden file input
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.style.display = 'none';
+      fileInput.id = 'custom-mockup-input';
+
+      // Upload button
+      const uploadBtn = document.createElement('button');
+      uploadBtn.textContent = '📁 Select mockup file';
+      uploadBtn.style.padding = '12px 24px';
+      uploadBtn.style.fontSize = '14px';
+      uploadBtn.style.fontWeight = 'bold';
+      uploadBtn.style.border = '2px solid #4CAF50';
+      uploadBtn.style.background = '#4CAF50';
+      uploadBtn.style.color = 'white';
+      uploadBtn.style.borderRadius = '6px';
+      uploadBtn.style.cursor = 'pointer';
+      uploadBtn.style.transition = 'all 0.2s';
+      uploadBtn.onmouseover = () => {
+        uploadBtn.style.background = '#45a049';
+        uploadBtn.style.borderColor = '#45a049';
+      };
+      uploadBtn.onmouseout = () => {
+        uploadBtn.style.background = '#4CAF50';
+        uploadBtn.style.borderColor = '#4CAF50';
+      };
+      uploadBtn.onclick = () => fileInput.click();
+
+      uploadSection.appendChild(fileInput);
+      uploadSection.appendChild(uploadBtn);
+
+      // Preview area for uploaded mockup
+      const previewArea = document.createElement('div');
+      previewArea.style.marginTop = '16px';
+      previewArea.style.display = 'none';
+      previewArea.style.textAlign = 'center';
+
+      const previewImg = document.createElement('img');
+      previewImg.style.maxWidth = '200px';
+      previewImg.style.maxHeight = '200px';
+      previewImg.style.borderRadius = '8px';
+      previewImg.style.border = '2px solid #ddd';
+      previewImg.style.objectFit = 'cover';
+
+      const previewText = document.createElement('div');
+      previewText.style.marginTop = '8px';
+      previewText.style.fontSize = '14px';
+      previewText.style.color = '#666';
+
+      const useCustomBtn = document.createElement('button');
+      useCustomBtn.textContent = '✓ Use this mockup';
+      useCustomBtn.style.marginTop = '12px';
+      useCustomBtn.style.padding = '8px 16px';
+      useCustomBtn.style.fontSize = '14px';
+      useCustomBtn.style.fontWeight = 'bold';
+      useCustomBtn.style.border = '2px solid #2196F3';
+      useCustomBtn.style.background = '#2196F3';
+      useCustomBtn.style.color = 'white';
+      useCustomBtn.style.borderRadius = '6px';
+      useCustomBtn.style.cursor = 'pointer';
+
+      previewArea.appendChild(previewImg);
+      previewArea.appendChild(previewText);
+      previewArea.appendChild(useCustomBtn);
+      uploadSection.appendChild(previewArea);
+
+      // Handle file selection
+      fileInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          alert('Please select an image file (PNG, JPG, etc.)');
+          return;
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          alert('File too large! Please select a file smaller than 10MB');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const imageDataUrl = e.target.result;
+          previewImg.src = imageDataUrl;
+          previewText.textContent = `${file.name} (${Math.round(file.size / 1024)}KB)`;
+          previewArea.style.display = 'block';
+          
+          uploadBtn.textContent = '✓ File selected - Choose another file';
+          uploadBtn.style.background = '#45a049';
+          uploadBtn.style.borderColor = '#45a049';
+
+          // Handle use custom mockup
+          useCustomBtn.onclick = () => {
+            // Set custom mockup data
+            selectedMockup = {
+              uuid: 'custom-' + Date.now(),
+              thumbnail: imageDataUrl,
+              isCustom: true,
+              originalFile: file,
+              imageData: imageDataUrl
+            };
+            
+            // Create a mock smart object for custom mockup
+            selectedSmartObject = {
+              uuid: 'custom-smart-object',
+              isCustom: true
+            };
+            
+            selectMockupBtn.textContent = 'Selected: Custom mockup';
+            console.log('Selected custom mockup:', selectedMockup);
+            
+            // Display custom mockup in result frame
+            rightCol.innerHTML = '';
+            const mockupPreview = document.createElement('img');
+            mockupPreview.src = imageDataUrl;
+            mockupPreview.style.maxWidth = '100%';
+            mockupPreview.style.maxHeight = '100%';
+            mockupPreview.style.objectFit = 'contain';
+            mockupPreview.style.opacity = '1';
+            mockupPreview.id = 'mockup-preview';
+            rightCol.appendChild(mockupPreview);
+            
+            overlay.remove();
+          };
+        };
+        reader.readAsDataURL(file);
+      };
+
+      popup.appendChild(uploadSection);
+
+      // Divider
+      const divider = document.createElement('div');
+      divider.style.height = '1px';
+      divider.style.background = '#ddd';
+      divider.style.margin = '24px 0';
+      popup.appendChild(divider);
+
+      // Template section title
+      const templateTitle = document.createElement('div');
+      templateTitle.textContent = 'Or select from available template library:';
+      templateTitle.style.fontWeight = 'bold';
+      templateTitle.style.fontSize = '16px';
+      templateTitle.style.marginBottom = '16px';
+      templateTitle.style.color = '#333';
+      popup.appendChild(templateTitle);
       const list = document.createElement('div');
       list.style.display = 'flex';
       list.style.flexWrap = 'wrap';
@@ -870,14 +1063,14 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
             item.onclick = () => {
               selectedMockup = m;
               
-              // Lấy smart object đầu tiên (hoặc cho chọn nếu có nhiều)
+              // Get first smart object (or allow selection if multiple)
               if (m.smart_objects && m.smart_objects.length > 0) {
-                selectedSmartObject = m.smart_objects[0]; // Lấy cái đầu tiên
-                selectMockupBtn.textContent = 'Đã chọn mẫu';
+                selectedSmartObject = m.smart_objects[0]; // Get the first one
+                selectMockupBtn.textContent = 'Template selected';
                 console.log('Selected mockup:', m);
                 console.log('Selected smart object:', selectedSmartObject);
                 
-                // Hiển thị mẫu mockup đã chọn trong khung kết quả
+                // Display selected mockup template in result frame
                 rightCol.innerHTML = '';
                 const mockupPreview = document.createElement('img');
                 mockupPreview.src = m.thumbnail;
@@ -889,7 +1082,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
                 rightCol.appendChild(mockupPreview);
                 
               } else {
-                alert('Mockup này không có vị trí để gắn thiết kế!');
+                alert('This mockup has no position to attach design!');
                 return;
               }
               
@@ -899,12 +1092,12 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
           });
         })
         .catch(err => {
-          console.error('Lỗi lấy mockup:', err);
-          list.textContent = 'Không lấy được danh sách mockup: ' + err.message;
+          console.error('Error fetching mockup:', err);
+          list.textContent = 'Could not get mockup list: ' + err.message;
         });
       popup.appendChild(list);
       const closeBtn = document.createElement('button');
-      closeBtn.textContent = 'Đóng';
+      closeBtn.textContent = 'Close';
       closeBtn.style.marginTop = '24px';
       closeBtn.style.padding = '8px 24px';
       closeBtn.style.borderRadius = '6px';
@@ -919,13 +1112,13 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
 
     topBar.appendChild(leftTopGroup);
 
-    // Bên phải: Nút tạo và quay lại
+    // Right side: Create and back buttons
     const rightTopGroup = document.createElement('div');
     rightTopGroup.style.display = 'flex';
     rightTopGroup.style.gap = '18px';
     rightTopGroup.style.alignItems = 'center';
 
-    // Nút tạo mockup
+    // Create mockup button
     const createBtn = document.createElement('button');
     createBtn.textContent = 'CREATE MOCKUP';
     createBtn.style.height = '48px';
@@ -940,7 +1133,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     createBtn.style.margin = '0';
     rightTopGroup.appendChild(createBtn);
 
-    // Nút quay lại
+    // Back button
     const backBtn = document.createElement('button');
     backBtn.textContent = 'BACK';
     backBtn.style.height = '48px';
@@ -958,7 +1151,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     topBar.appendChild(rightTopGroup);
     popup.appendChild(topBar);
 
-    // Container chính: 2 cột song song
+    // Main container: 2 parallel columns
     const mainContainer = document.createElement('div');
     mainContainer.style.flex = '1';
     mainContainer.style.display = 'flex';
@@ -969,7 +1162,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     mainContainer.style.marginTop = '10px';
     mainContainer.style.marginBottom = '60px';
 
-    // 2 cột: Thiết kế gốc - Kết quả mockup
+    // 2 columns: Original design - Mockup result
     const mainContent = document.createElement('div');
     mainContent.style.display = 'flex';
     mainContent.style.flexDirection = 'row';
@@ -979,7 +1172,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     mainContent.style.width = 'auto';
     mainContent.style.height = 'auto';
 
-    // Cột trái: Thiết kế đã trích xuất
+    // Left column: Extracted design
     const leftColWrap = document.createElement('div');
     leftColWrap.style.display = 'flex';
     leftColWrap.style.flexDirection = 'column';
@@ -1016,11 +1209,11 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
       img.style.objectFit = 'contain';
       leftCol.appendChild(img);
     } else {
-      leftCol.textContent = 'Nah';
+      leftCol.textContent = 'None';
     }
     leftColWrap.appendChild(leftCol);
 
-    // Cột phải: Kết quả mockup
+    // Right column: Mockup result
     const rightColWrap = document.createElement('div');
     rightColWrap.style.display = 'flex';
     rightColWrap.style.flexDirection = 'column';
@@ -1059,9 +1252,9 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
 
 
 
-    // Nút lưu sản phẩm (ẩn ban đầu)
+    // Save product button (hidden initially)
     const saveProductBtn = document.createElement('button');
-    saveProductBtn.textContent = 'LƯU SẢN PHẨM';
+    saveProductBtn.textContent = 'SAVE PRODUCT';
     saveProductBtn.style.height = '48px';
     saveProductBtn.style.padding = '0 28px';
     saveProductBtn.style.borderRadius = '8px';
@@ -1075,33 +1268,33 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
     saveProductBtn.style.display = 'none';
     rightTopGroup.appendChild(saveProductBtn);
 
-    // Xử lý nút Quay lại
+    // Handle Back button
     backBtn.onclick = function() {
       mockupBg.remove();
       bg.style.display = 'flex';
     };
 
-    // Xử lý nút Tạo Mockup 
+    // Handle Create Mockup button 
     createBtn.onclick = function() {
       if (!selectedMockup || !selectedSmartObject) {
-        alert('Vui lòng chọn mẫu mockup trước!');
+        alert('Please select a mockup template first!');
         return;
       }
       
       if (!designBase64) {
-        alert('Không có thiết kế để tạo mockup!');
+        alert('No design available to create mockup!');
         return;
       }
       
       createBtn.disabled = true;
-      createBtn.textContent = 'Đang upload ảnh...';
+      createBtn.textContent = 'Creating mockup...';
       
-      // Hiển thị loading trên mẫu mockup
+      // Show loading on mockup template
       const mockupPreview = document.getElementById('mockup-preview');
       if (mockupPreview) {
-        mockupPreview.style.opacity = '0.3'; // Làm mờ
+        mockupPreview.style.opacity = '0.3'; // Make transparent
         
-        // Tạo loading overlay
+        // Create loading overlay
         const loadingOverlay = document.createElement('div');
         loadingOverlay.id = 'loading-overlay';
         loadingOverlay.style.position = 'absolute';
@@ -1135,7 +1328,7 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
         rightCol.style.position = 'relative';
         rightCol.appendChild(loadingOverlay);
         
-        // Thêm CSS animation cho spinner
+        // Add CSS animation for spinner
         if (!document.getElementById('spinner-style')) {
           const style = document.createElement('style');
           style.id = 'spinner-style';
@@ -1149,63 +1342,63 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
         }
       }
       
-      // API Keys
-      const imgbbApiKey = 'b248161838895d85e5ac6884c5f0de07';
-      const dynamicMockupsApiKey = '79d70e34-104c-493c-8553-723102e37207:f1afba7b448fe18ec304c8c71a0768f5756e3973b50bcd7745f6815be4e2f1ef';
-      
-      // Upload ảnh lên ImgBB trước
-      uploadImageToImgBB(designBase64, imgbbApiKey)
-        .then(imageUrl => {
-          console.log('Ảnh đã upload thành công:', imageUrl);
-          createBtn.textContent = 'Đang tạo mockup...';
-          
-          // Cập nhật loading text
+      // Check if it's a custom mockup
+      if (selectedMockup.isCustom) {
+        // Handle custom mockup - direct composite
+        handleCustomMockup();
+      } else {
+        // Handle mockup from API
+        handleAPIMockup();
+      }
+
+      function handleCustomMockup() {
+        try {
+          // Update loading text
           const loadingText = document.getElementById('loading-text');
           if (loadingText) {
-            loadingText.textContent = 'Đang render mockup...';
+            loadingText.textContent = 'Compositing design...';
           }
-          
-          // Gọi API DynamicMockups để render mockup
-          return renderMockup(selectedMockup.uuid, selectedSmartObject.uuid, imageUrl, dynamicMockupsApiKey, selectedSmartObject);
-        })
-        .then(mockupUrl => {
-          console.log('Mockup đã tạo thành công:', mockupUrl);
-          
-          // Xóa loading overlay
-          const loadingOverlay = document.getElementById('loading-overlay');
-          if (loadingOverlay) {
-            loadingOverlay.remove();
-          }
-          
-          // Hiển thị mockup kết quả thật
-          const mockupImg = document.createElement('img');
-          mockupImg.src = mockupUrl;
-          mockupImg.style.maxWidth = '100%';
-          mockupImg.style.maxHeight = '100%';
-          mockupImg.style.objectFit = 'contain';
-          mockupImg.style.opacity = '1';
-          
-          rightCol.innerHTML = ''; // Xóa nội dung cũ
-          rightCol.appendChild(mockupImg);
-          
-          // Hiển thị nút lưu sản phẩm
-          saveProductBtn.style.display = 'block';
-          saveProductBtn.onclick = () => {
-            // designBase64: ảnh thiết kế đã xử lý
-            // mockupUrl: URL mockup vừa tạo
-            // originalImageBase64: ảnh gốc đã crop từ popup design
-            saveProductData(designBase64, mockupUrl, originalImageBase64);
-          };
-          
 
+          // Create composite mockup by overlaying design on custom mockup
+          createCustomMockupComposite(selectedMockup.imageData, designBase64)
+            .then(compositeResult => {
+              console.log('Custom mockup created successfully');
+              
+              // Remove loading overlay
+              const loadingOverlay = document.getElementById('loading-overlay');
+              if (loadingOverlay) {
+                loadingOverlay.remove();
+              }
+              
+              // Display result mockup
+              const mockupImg = document.createElement('img');
+              mockupImg.src = compositeResult;
+              mockupImg.style.maxWidth = '100%';
+              mockupImg.style.maxHeight = '100%';
+              mockupImg.style.objectFit = 'contain';
+              mockupImg.style.opacity = '1';
+              
+              rightCol.innerHTML = ''; // Clear old content
+              rightCol.appendChild(mockupImg);
+              
+              // Show save product button
+              saveProductBtn.style.display = 'block';
+              saveProductBtn.onclick = () => {
+                // With custom mockup, we use composite result
+                saveProductData(designBase64, compositeResult, originalImageBase64);
+              };
+              
+              createBtn.disabled = false;
+              createBtn.textContent = 'CREATE MOCKUP';
+            })
+            .catch(err => {
+              throw err;
+            });
+            
+        } catch (err) {
+          alert('Error creating custom mockup: ' + err.message);
           
-          createBtn.disabled = false;
-          createBtn.textContent = 'Create mockup';
-        })
-        .catch(err => {
-          alert('Lỗi: ' + err.message);
-          
-          // Xóa loading overlay và khôi phục opacity
+          // Remove loading overlay and restore opacity
           const loadingOverlay = document.getElementById('loading-overlay');
           if (loadingOverlay) {
             loadingOverlay.remove();
@@ -1217,7 +1410,78 @@ function showPreviewPopup(dataUrl, blobUrl, isError) {
           
           createBtn.disabled = false;
           createBtn.textContent = 'CREATE MOCKUP';
-        });
+        }
+      }
+
+      function handleAPIMockup() {
+        // API Keys
+        const imgbbApiKey = 'b248161838895d85e5ac6884c5f0de07';
+        const dynamicMockupsApiKey = '79d70e34-104c-493c-8553-723102e37207:f1afba7b448fe18ec304c8c71a0768f5756e3973b50bcd7745f6815be4e2f1ef';
+        
+        // Upload image to ImgBB first
+        uploadImageToImgBB(designBase64, imgbbApiKey)
+          .then(imageUrl => {
+            console.log('Image uploaded successfully:', imageUrl);
+            createBtn.textContent = 'Creating mockup...';
+            
+            // Update loading text
+            const loadingText = document.getElementById('loading-text');
+            if (loadingText) {
+              loadingText.textContent = 'Rendering mockup...';
+            }
+            
+            // Call DynamicMockups API to render mockup
+            return renderMockup(selectedMockup.uuid, selectedSmartObject.uuid, imageUrl, dynamicMockupsApiKey, selectedSmartObject);
+          })
+          .then(mockupUrl => {
+            console.log('Mockup created successfully:', mockupUrl);
+            
+            // Remove loading overlay
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+              loadingOverlay.remove();
+            }
+            
+            // Display actual mockup result
+            const mockupImg = document.createElement('img');
+            mockupImg.src = mockupUrl;
+            mockupImg.style.maxWidth = '100%';
+            mockupImg.style.maxHeight = '100%';
+            mockupImg.style.objectFit = 'contain';
+            mockupImg.style.opacity = '1';
+            
+            rightCol.innerHTML = ''; // Clear old content
+            rightCol.appendChild(mockupImg);
+            
+            // Show save product button
+            saveProductBtn.style.display = 'block';
+            saveProductBtn.onclick = () => {
+              // designBase64: processed design image
+              // mockupUrl: newly created mockup URL
+              // originalImageBase64: original cropped image from design popup
+              saveProductData(designBase64, mockupUrl, originalImageBase64);
+            };
+            
+            createBtn.disabled = false;
+            createBtn.textContent = 'CREATE MOCKUP';
+          })
+          .catch(err => {
+            alert('Error: ' + err.message);
+            
+            // Remove loading overlay and restore opacity
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+              loadingOverlay.remove();
+            }
+            const mockupPreview = document.getElementById('mockup-preview');
+            if (mockupPreview) {
+              mockupPreview.style.opacity = '1';
+            }
+            
+            createBtn.disabled = false;
+            createBtn.textContent = 'CREATE MOCKUP';
+          });
+      }
     };
 
     document.body.appendChild(mockupBg);
@@ -1518,10 +1782,10 @@ initDB().catch(console.error);
 // Main function to save product data
 async function saveProductData(designImageBase64, mockupImageUrl, originalImageBase64) {
   try {
-    // Lấy tên người dùng từ storage
+    // Get user name from storage
     const userName = await new Promise((resolve) => {
       chrome.storage.local.get(['userName'], function(result) {
-        resolve(result.userName || 'Không rõ');
+        resolve(result.userName || 'Unknown');
       });
     });
     
@@ -1529,23 +1793,23 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
     const productInfo = scrapeProductInfo();
     
     if (!productInfo) {
-      alert('Không thể lấy thông tin sản phẩm từ trang này!\nHãy thử trên trang Amazon, Etsy hoặc Shopify.');
+      alert('Cannot get product information from this page!\nPlease try on Amazon, Etsy or Shopify pages.');
       return;
     }
     
     // Convert mockup URL to base64 for storage
     const mockupImageBase64 = await urlToBase64(mockupImageUrl);
     
-    // Nén thông minh: Design giữ chất lượng cao, Mockup nén mạnh
+    // Smart compression: Design keeps high quality, Mockup heavily compressed
     console.log('Original image sizes:', {
       designImage: Math.round(designImageBase64.length / 1024) + 'KB',
       mockupImage: Math.round(mockupImageBase64.length / 1024) + 'KB'
     });
     
-    // Design: Giữ PNG trong suốt, chất lượng cao cho in ấn nhưng giảm kích thước
+    // Design: Keep PNG transparent, high quality for printing but reduce size
     const optimizedDesignImage = await smartCompressDesign(designImageBase64);
     
-    // Mockup: JPEG nén rất mạnh để đảm bảo dưới 8MB
+    // Mockup: JPEG heavily compressed to ensure under 8MB
     const compressedMockupImage = await compressImage(mockupImageBase64, 0.3, 800, 'jpeg');
     
     console.log('Optimized image sizes:', {
@@ -1553,7 +1817,7 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
       mockupImage: Math.round(compressedMockupImage.length / 1024) + 'KB'
     });
     
-    // Kiểm tra tổng kích thước và nén thêm nếu cần
+    // Check total size and compress more if needed
     let finalDesignImage = optimizedDesignImage;
     let finalMockupImage = compressedMockupImage;
     
@@ -1567,21 +1831,21 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
       originalUrl: productInfo.url, // API expects camelCase → original_url (database schema updated)
       designImage: finalDesignImage, // API expects camelCase → design_image
       mockupImage: finalMockupImage, // API expects camelCase → mockup_image
-      // Bỏ extensionId vì database schema không có cột extension_id
+      // Remove extensionId as database schema doesn't have extension_id column
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
     
     const totalSizeKB = Math.round(JSON.stringify(tempData).length / 1024);
     console.log('Total data size:', totalSizeKB + 'KB');
     
-    // Nếu vượt quá 8MB (8192KB), nén thêm
-    if (totalSizeKB > 8000) { // Để an toàn, check 8000KB thay vì 8192KB
+    // If exceeds 8MB (8192KB), compress more
+    if (totalSizeKB > 8000) { // For safety, check 8000KB instead of 8192KB
       console.log('Data too large, applying extra compression...');
       
-      // Nén design xuống nhỏ hơn
-      finalDesignImage = await smartCompressDesign(designImageBase64, 2000); // Giảm xuống 2000px
+      // Compress design smaller
+      finalDesignImage = await smartCompressDesign(designImageBase64, 2000); // Reduce to 2000px
       
-      // Nén mockup cực mạnh
+      // Compress mockup extremely
       finalMockupImage = await compressImage(mockupImageBase64, 0.2, 600, 'jpeg');
       
       console.log('Extra compressed sizes:', {
@@ -1590,11 +1854,11 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
       });
     }
     
-    // Format ngày giờ theo định dạng ISO để gửi API
+    // Format date time according to ISO format for API
     const now = new Date();
     const timestamp = now.toISOString().replace('T', ' ').substring(0, 19); // Format: 2025-01-15 14:30:00
 
-    // Create product data object theo format API với ảnh đã nén tối ưu
+    // Create product data object according to API format with optimized compressed images
     const productData = {
       id: generateUniqueId(),
       productName: productInfo.title, // API expects camelCase → product_name
@@ -1605,33 +1869,28 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
       originalUrl: productInfo.url, // API expects camelCase → original_url (database schema updated)
       designImage: finalDesignImage, // API expects camelCase → design_image
       mockupImage: finalMockupImage, // API expects camelCase → mockup_image
-      // Bỏ extensionId vì database schema không có cột extension_id
+      // Remove extensionId as database schema doesn't have extension_id column
       timestamp: timestamp
     };
     
-    // Debug URL để đảm bảo không bị null/empty
-    console.log('🔍 URL DEBUG:', {
-      'productInfo.url': productInfo.url,
-      'productData.originalUrl': productData.originalUrl,
-      'window.location.href': window.location.href,
-      'URL length': productInfo.url ? productInfo.url.length : 0
-    });
-    
-    // Log kích thước cuối cùng
+    // Log final size
     const finalSizeKB = Math.round(JSON.stringify(productData).length / 1024);
     console.log('Final data size before sending:', finalSizeKB + 'KB');
     
-    // Gửi dữ liệu lên API của trang web
+    // Send data to website API
     try {
       await sendProductToAPI(productData);
       
       // Show success notification
-      showSuccessNotification('Lưu thành công về JEG Website');
+      showSuccessNotification('Successfully saved to JEG Website');
+      
+      // Increment usage count when product is successfully saved to JEG Website
+      incrementUsageCount();
       
       console.log('Product saved successfully to website:', productData);
       
     } catch (apiError) {
-      // Nếu lỗi API, vẫn backup local
+      // If API error, still backup locally
       console.warn('API failed, saving to local backup:', apiError);
       
       const backupData = {
@@ -1643,41 +1902,62 @@ async function saveProductData(designImageBase64, mockupImageUrl, originalImageB
       await saveProductToDB(backupData);
       downloadJSON(backupData, `product-backup-${backupData.id}.json`);
       
-      showErrorNotification(`⚠️ Không thể gửi lên trang web: ${apiError.message}\nĐã lưu backup về máy.`, 6000);
-      return; // Thoát khỏi hàm, không chạy code phía dưới
+      showErrorNotification(`⚠️ Cannot send to website: ${apiError.message}\nBackup saved to computer.`, 6000);
+      return; // Exit function, don't run code below
     }
     
-    // Backup: Save to IndexedDB (sau khi API thành công)
+    // Backup: Save to IndexedDB (after API success)
     await saveProductToDB(productData);
     
   } catch (error) {
     console.error('Error saving product:', error);
     
-    // Nếu API lỗi, vẫn backup local và thông báo
+    // If API error, still backup locally and notify
     try {
+      // Get userName again if not available
+      let userName = 'Unknown';
+      try {
+        const userResult = await new Promise((resolve) => {
+          chrome.storage.local.get(['userName'], function(result) {
+            resolve(result.userName || 'Unknown');
+          });
+        });
+        userName = userResult;
+      } catch (userError) {
+        console.warn('Cannot get userName:', userError);
+      }
+
+      // Get productInfo again if not available
+      let productInfo = null;
+      try {
+        productInfo = scrapeProductInfo();
+      } catch (scrapeError) {
+        console.warn('Cannot scrape productInfo:', scrapeError);
+      }
+
       const backupData = {
         id: generateUniqueId(),
-        productName: productInfo?.title || 'Không rõ',
+        productName: productInfo?.title || 'Unknown',
         platform: productInfo?.platform || 'unknown',
         userName: userName,
-        originalUrl: productInfo?.url || window.location.href, // Database có cột 'original_url'
+        originalUrl: productInfo?.url || window.location.href, // Database has 'original_url' column
         keywords: Array.isArray(productInfo?.keywords) ? productInfo.keywords : (productInfo?.keywords ? productInfo.keywords.split(',').map(k => k.trim()) : []),
         designImage: designImageBase64,
         mockupImage: mockupImageBase64,
-        // Bỏ extensionId vì database schema không có cột này
+        // Remove extensionId as database schema doesn't have this column
         timestamp: new Date().toISOString()
       };
       await saveProductToDB(backupData);
       downloadJSON(backupData, `product-backup-${backupData.id}.json`);
       
-             showErrorNotification('⚠️ Không thể kết nối trang web! Đã lưu backup vào máy và trình duyệt.', 5000);
+             showErrorNotification('⚠️ Cannot connect to website! Backup saved to computer and browser.', 5000);
     } catch (backupError) {
-      alert('Có lỗi khi lưu sản phẩm: ' + error.message);
+      alert('Error saving product: ' + error.message);
     }
   }
 }
 
-// Hàm gửi dữ liệu lên API của trang web thông qua background script
+// Function to send data to website API via background script
 async function sendProductToAPI(productData) {
   return new Promise((resolve, reject) => {
     console.log('Content script sending product data via background script:', {
@@ -1692,13 +1972,17 @@ async function sendProductToAPI(productData) {
       timestamp: productData.timestamp
     });
     
-    // Gửi message tới background script để xử lý API call
+    // Debug: Check if originalUrl has value
+    console.log('🔍 DEBUG originalUrl:', productData.originalUrl);
+    console.log('🔍 DEBUG window.location.href:', window.location.href);
+    
+    // Send message to background script to handle API call
     chrome.runtime.sendMessage({
       action: 'sendProductToAPI',
       productData: productData
     }, (response) => {
       if (chrome.runtime.lastError) {
-        reject(new Error('Lỗi giao tiếp với background script: ' + chrome.runtime.lastError.message));
+        reject(new Error('Error communicating with background script: ' + chrome.runtime.lastError.message));
         return;
       }
       
@@ -1706,7 +1990,7 @@ async function sendProductToAPI(productData) {
         console.log('Product data sent successfully via background script:', response.data);
         resolve(response.data);
       } else {
-        reject(new Error(response.error || 'Lỗi không xác định từ background script'));
+        reject(new Error(response.error || 'Unknown error from background script'));
       }
     });
   });
@@ -1743,7 +2027,7 @@ function generateUniqueId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Nén ảnh thiết kế thông minh - giữ chất lượng cao cho in ấn
+// Smart compress design image - maintain high quality for printing
 function smartCompressDesign(base64String, maxDimension = 3000) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -1751,7 +2035,7 @@ function smartCompressDesign(base64String, maxDimension = 3000) {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      // Chỉ giảm kích thước nếu quá lớn, giữ tỷ lệ
+      // Only reduce size if too large, maintain aspect ratio
       let { width, height } = img;
       
       if (width > maxDimension || height > maxDimension) {
@@ -1767,11 +2051,11 @@ function smartCompressDesign(base64String, maxDimension = 3000) {
       canvas.width = width;
       canvas.height = height;
       
-      // Vẽ ảnh với nền trong suốt
+      // Draw image with transparent background
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Xuất PNG với chất lượng cao, giữ nền trong suốt
+      // Export PNG with high quality, maintain transparent background
       const optimizedBase64 = canvas.toDataURL('image/png');
       resolve(optimizedBase64);
     };
@@ -1779,7 +2063,7 @@ function smartCompressDesign(base64String, maxDimension = 3000) {
   });
 }
 
-// Nén ảnh mockup - có thể nén mạnh vì chỉ để hiển thị
+// Compress mockup image - can compress heavily as it's only for display
 function compressImage(base64String, quality = 0.7, maxWidth = 1920, format = 'jpeg') {
   return new Promise((resolve) => {
     const img = new Image();
@@ -1787,7 +2071,7 @@ function compressImage(base64String, quality = 0.7, maxWidth = 1920, format = 'j
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      // Tính toán kích thước mới
+      // Calculate new size
       let { width, height } = img;
       if (width > maxWidth) {
         height = (height * maxWidth) / width;
@@ -1797,16 +2081,16 @@ function compressImage(base64String, quality = 0.7, maxWidth = 1920, format = 'j
       canvas.width = width;
       canvas.height = height;
       
-      // Nếu là JPEG, fill nền trắng trước
+      // If JPEG, fill white background first
       if (format === 'jpeg') {
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
       }
       
-      // Vẽ ảnh lên canvas
+      // Draw image on canvas
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Xuất ảnh với format và chất lượng tương ứng
+      // Export image with corresponding format and quality
       const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
       const compressedBase64 = canvas.toDataURL(mimeType, quality);
       resolve(compressedBase64);
@@ -1892,10 +2176,10 @@ function downloadJSON(data, filename) {
   URL.revokeObjectURL(url);
 }
 
-// Hàm upload ảnh lên ImgBB
+// Function to upload image to ImgBB
 async function uploadImageToImgBB(imageBase64, apiKey) {
   const formData = new FormData();
-  // Bỏ phần header 'data:image/png;base64,' nếu có
+  // Remove header 'data:image/png;base64,' if present
   const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
   formData.append('image', base64Data);
   
@@ -1906,13 +2190,13 @@ async function uploadImageToImgBB(imageBase64, apiKey) {
   
   const data = await res.json();
   if (data.success) {
-    return data.data.url; // Link ảnh public
+    return data.data.url; // Public image link
   } else {
-    throw new Error('Upload ảnh thất bại: ' + (data.error ? data.error.message : 'Lỗi không xác định'));
+    throw new Error('Image upload failed: ' + (data.error ? data.error.message : 'Unknown error'));
   }
 }
 
-// Hàm render mockup với DynamicMockups API
+// Function to render mockup with DynamicMockups API
 async function renderMockup(mockupUuid, smartObjectUuid, imageUrl, apiKey, smartObjectInfo) {
   const body = {
     mockup_uuid: mockupUuid,
@@ -1927,10 +2211,10 @@ async function renderMockup(mockupUuid, smartObjectUuid, imageUrl, apiKey, smart
         uuid: smartObjectUuid,
         asset: {
           url: imageUrl,
-          fit: 'contain' // Chỉ dùng fit để tự động căn chỉnh, bỏ position và size
-          // Bỏ size và position để tránh conflict với fit
+          fit: 'contain' // Only use fit for automatic alignment, remove position and size
+          // Remove size and position to avoid conflict with fit
         },
-        // Sử dụng print area preset nếu có
+        // Use print area preset if available
         print_area_preset_uuid: smartObjectInfo && smartObjectInfo.print_area_presets && smartObjectInfo.print_area_presets[0] ? smartObjectInfo.print_area_presets[0].uuid : undefined
       }
     ]
@@ -1950,11 +2234,11 @@ async function renderMockup(mockupUuid, smartObjectUuid, imageUrl, apiKey, smart
   if (data.success && data.data && data.data.export_path) {
     return data.data.export_path;
   } else {
-    throw new Error(data.message || 'Không tạo được mockup');
+    throw new Error(data.message || 'Cannot create mockup');
   }
 }
 
-// Hàm lấy danh sách mockup từ backend
+// Function to get mockup list from backend
 async function fetchMockupTemplates() {
   const res = await fetch('https://jeg-redesign.onrender.com/mockup-templates', {
     method: 'GET',
@@ -1962,8 +2246,175 @@ async function fetchMockupTemplates() {
       'Accept': 'application/json'
     }
   });
-  if (!res.ok) throw new Error('Không lấy được danh sách mockup');
+  if (!res.ok) throw new Error('Could not get mockup list');
   return await res.json();
+}
+
+// Function to create composite mockup from custom mockup and design
+function createCustomMockupComposite(mockupBase64, designBase64) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const mockupImg = new Image();
+    const designImg = new Image();
+    
+    let imagesLoaded = 0;
+    const totalImages = 2;
+    
+    function checkImagesLoaded() {
+      imagesLoaded++;
+      if (imagesLoaded === totalImages) {
+        try {
+          // Set canvas size according to mockup
+          canvas.width = mockupImg.width;
+          canvas.height = mockupImg.height;
+          
+          // Draw mockup as background
+          ctx.drawImage(mockupImg, 0, 0);
+          
+          // Calculate position and size for design
+          // Place design at center with appropriate size
+          const maxDesignWidth = canvas.width * 0.3;  // 30% of mockup width
+          const maxDesignHeight = canvas.height * 0.3; // 30% of mockup height
+          
+          let designWidth = designImg.width;
+          let designHeight = designImg.height;
+          
+          // Scale design to fit within max size
+          const scaleX = maxDesignWidth / designWidth;
+          const scaleY = maxDesignHeight / designHeight;
+          const scale = Math.min(scaleX, scaleY);
+          
+          designWidth *= scale;
+          designHeight *= scale;
+          
+          // Center position
+          const x = (canvas.width - designWidth) / 2;
+          const y = (canvas.height - designHeight) / 2;
+          
+          // Add shadow for design
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+          
+          // Draw design on mockup
+          ctx.drawImage(designImg, x, y, designWidth, designHeight);
+          
+          ctx.restore();
+          
+          // Convert to base64
+          const result = canvas.toDataURL('image/jpeg', 0.9);
+          resolve(result);
+          
+        } catch (error) {
+          reject(new Error('Error compositing image: ' + error.message));
+        }
+      }
+    }
+    
+    function handleImageError(errorMsg) {
+      reject(new Error(errorMsg));
+    }
+    
+    // Load mockup image
+    mockupImg.onload = checkImagesLoaded;
+    mockupImg.onerror = () => handleImageError('Cannot load mockup image');
+    mockupImg.src = mockupBase64;
+    
+    // Load design image
+    designImg.onload = checkImagesLoaded;
+    designImg.onerror = () => handleImageError('Cannot load design image');
+    designImg.src = designBase64;
+  });
+}
+
+// Function to create custom mockup with user interaction (advanced option)
+function createInteractiveCustomMockup(mockupBase64, designBase64) {
+  return new Promise((resolve, reject) => {
+    // Create popup for user to adjust design position and size
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.right = '0';
+    overlay.style.bottom = '0';
+    overlay.style.background = 'rgba(0,0,0,0.8)';
+    overlay.style.zIndex = '1000003';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    
+    const popup = document.createElement('div');
+    popup.style.background = '#fff';
+    popup.style.borderRadius = '10px';
+    popup.style.padding = '20px';
+    popup.style.maxWidth = '90vw';
+    popup.style.maxHeight = '90vh';
+    popup.style.display = 'flex';
+    popup.style.flexDirection = 'column';
+    popup.style.alignItems = 'center';
+    
+    const title = document.createElement('div');
+    title.textContent = 'Adjust design position on mockup';
+    title.style.fontWeight = 'bold';
+    title.style.fontSize = '18px';
+    title.style.marginBottom = '20px';
+    popup.appendChild(title);
+    
+    const canvas = document.createElement('canvas');
+    canvas.style.border = '2px solid #ddd';
+    canvas.style.maxWidth = '600px';
+    canvas.style.maxHeight = '600px';
+    canvas.style.cursor = 'move';
+    popup.appendChild(canvas);
+    
+    const controls = document.createElement('div');
+    controls.style.marginTop = '20px';
+    controls.style.display = 'flex';
+    controls.style.gap = '10px';
+    
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = 'Confirm';
+    confirmBtn.style.padding = '10px 20px';
+    confirmBtn.style.background = '#4CAF50';
+    confirmBtn.style.color = 'white';
+    confirmBtn.style.border = 'none';
+    confirmBtn.style.borderRadius = '5px';
+    confirmBtn.style.cursor = 'pointer';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.padding = '10px 20px';
+    cancelBtn.style.background = '#f44336';
+    cancelBtn.style.color = 'white';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.borderRadius = '5px';
+    cancelBtn.style.cursor = 'pointer';
+    
+    controls.appendChild(confirmBtn);
+    controls.appendChild(cancelBtn);
+    popup.appendChild(controls);
+    
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+    
+    // TODO: Implement interactive positioning logic
+    // For now, just use the simple composite
+    confirmBtn.onclick = () => {
+      overlay.remove();
+      createCustomMockupComposite(mockupBase64, designBase64)
+        .then(resolve)
+        .catch(reject);
+    };
+    
+    cancelBtn.onclick = () => {
+      overlay.remove();
+      reject(new Error('User cancelled'));
+    };
+  });
 }
 
 

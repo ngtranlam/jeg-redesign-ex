@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Screen Capture Extension",
   "version": "1.0",
-  "description": "Chụp ảnh màn hình và lưu lại",
+  "description": "Capture screenshots and save them",
   "permissions": [
     "activeTab",
     "tabs",
@@ -15,7 +15,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Chụp ảnh màn hình"
+    "default_title": "Screen Capture"
   },
   "background": {
     "service_worker": "background.js"
